@@ -15,6 +15,7 @@ package kv
 
 import (
 	"context"
+	"errors"
 )
 
 // UnionStore is a store that wraps a snapshot for read and a BufferStore for buffered write.
@@ -82,10 +83,92 @@ func (e *existErrInfo) Err() error {
 	return ErrKeyExists.FastGenByArgs(e.value, e.idxName)
 }
 
+type unionStoreIter struct {
+	key     Key
+	val     []byte
+	iter    []Iterator
+	done    bool
+	reverse bool
+}
+
+func (usi *unionStoreIter) Valid() bool {
+	return !usi.done
+}
+
+func (usi *unionStoreIter) Key() Key {
+	return usi.key
+}
+
+func (usi *unionStoreIter) Value() []byte {
+	return usi.val
+}
+
+func (usi *unionStoreIter) Next() error {
+	for {
+		var min Key
+		var minIt Iterator
+
+		j := 0
+		for i := len(usi.iter) - 1; i >= 0; i-- {
+			it := usi.iter[i]
+
+			if !it.Valid() {
+				j++
+				continue
+			}
+			if it.Key().Cmp(usi.key) == 0 {
+				it.Next()
+				if !it.Valid() {
+					j++
+					continue
+				}
+			}
+
+			if !usi.reverse {
+				if min == nil || min.Cmp(it.Key()) > 0 {
+					min = it.Key()
+					minIt = it
+				}
+			} else {
+				if min == nil || min.Cmp(it.Key()) < 0 {
+					min = it.Key()
+					minIt = it
+				}
+			}
+		}
+
+		if j != len(usi.iter) {
+			usi.key = min
+			usi.val = minIt.Value()
+			if minIt.Valid() {
+				minIt.Next()
+			}
+		} else {
+			if usi.done {
+				return errors.New("no more keys")
+			}
+			usi.done = true
+			return nil
+		}
+
+		if len(usi.val) != 0 {
+			return nil
+		}
+	}
+}
+
+func (usi *unionStoreIter) Close() {
+	usi.done = true
+	for i := range usi.iter {
+		usi.iter[i].Close()
+	}
+}
+
 // unionStore is an in-memory Store which contains a buffer for write and a
 // snapshot for read.
 type unionStore struct {
-	*BufferStore
+	retriever    Retriever
+	buffers      []MemBuffer
 	keyExistErrs map[string]*existErrInfo // for the lazy check
 	opts         options
 }
@@ -93,7 +176,9 @@ type unionStore struct {
 // NewUnionStore builds a new UnionStore.
 func NewUnionStore(snapshot Snapshot) UnionStore {
 	return &unionStore{
-		BufferStore:  NewBufferStore(snapshot),
+		retriever: snapshot,
+		// TODO: maybe just keep the current buffer
+		buffers:      []MemBuffer{NewMemDbBuffer()},
 		keyExistErrs: make(map[string]*existErrInfo),
 		opts:         make(map[Option]interface{}),
 	}
@@ -101,7 +186,15 @@ func NewUnionStore(snapshot Snapshot) UnionStore {
 
 // Get implements the Retriever interface.
 func (us *unionStore) Get(ctx context.Context, k Key) ([]byte, error) {
-	v, err := us.MemBuffer.Get(ctx, k)
+	var v []byte
+	var err error
+
+	for i := len(us.buffers) - 1; i >= 0; i-- {
+		v, err = us.buffers[i].Get(ctx, k)
+		if err == nil {
+			break
+		}
+	}
 	if IsErrNotFound(err) {
 		if _, ok := us.opts.Get(PresumeKeyNotExists); ok {
 			e, ok := us.opts.Get(PresumeKeyNotExistsError)
@@ -110,7 +203,7 @@ func (us *unionStore) Get(ctx context.Context, k Key) ([]byte, error) {
 			}
 			return nil, ErrNotExist
 		}
-		v, err = us.BufferStore.r.Get(ctx, k)
+		v, err = us.retriever.Get(ctx, k)
 	}
 	if err != nil {
 		return v, err
@@ -119,6 +212,102 @@ func (us *unionStore) Get(ctx context.Context, k Key) ([]byte, error) {
 		return nil, ErrNotExist
 	}
 	return v, nil
+}
+
+func (us *unionStore) WalkBuffer(f func(Key, []byte) error) error {
+	it, err := us.Iter(nil, nil)
+	if err != nil {
+		return err
+	}
+
+	for it.Valid() {
+		err = f(it.Key(), it.Value())
+		if err != nil {
+			return err
+		}
+
+		err = it.Next()
+		if err != nil {
+			return err
+		}
+	}
+
+	return nil
+}
+
+func (us *unionStore) Iter(k Key, upperBound Key) (Iterator, error) {
+	var err error
+	iter := make([]Iterator, len(us.buffers)+1)
+
+	iter[0], err = us.retriever.Iter(k, upperBound)
+	if err != nil {
+		return nil, err
+	}
+
+	for i := range us.buffers {
+		iter[i+1], err = us.buffers[i].Iter(k, upperBound)
+		if err != nil {
+			return nil, err
+		}
+	}
+
+	r := &unionStoreIter{
+		iter:    iter,
+		done:    false,
+		reverse: false,
+	}
+	return r, r.Next()
+}
+
+func (us *unionStore) IterReverse(k Key) (Iterator, error) {
+	var err error
+	iter := make([]Iterator, len(us.buffers)+1)
+
+	iter[0], err = us.retriever.IterReverse(k)
+	if err != nil {
+		return nil, err
+	}
+
+	for i := range us.buffers {
+		iter[i+1], err = us.buffers[i].IterReverse(k)
+		if err != nil {
+			return nil, err
+		}
+	}
+
+	r := &unionStoreIter{
+		iter:    iter,
+		done:    false,
+		reverse: true,
+	}
+	return r, r.Next()
+}
+
+func (us *unionStore) Size() int {
+	r := 0
+	for i := range us.buffers {
+		r += us.buffers[i].Size()
+	}
+	return r
+}
+
+func (us *unionStore) Len() int {
+	r := 0
+	for i := range us.buffers {
+		r += us.buffers[i].Len()
+	}
+	return r
+}
+
+func (us *unionStore) Set(k Key, v []byte) error {
+	return us.buffers[len(us.buffers)-1].Set(k, v)
+}
+
+func (us *unionStore) Delete(k Key) error {
+	// It is ok to just delete it here
+	// delete(k) = set(k, nil) internally
+	// merge will empty this entrie
+	return us.buffers[len(us.buffers)-1].Delete(k)
 }
 
 func (us *unionStore) GetKeyExistErrInfo(k Key) *existErrInfo {
@@ -149,19 +338,26 @@ func (us *unionStore) GetOption(opt Option) interface{} {
 
 // GetMemBuffer return the MemBuffer binding to this UnionStore.
 func (us *unionStore) GetMemBuffer() MemBuffer {
-	return us.BufferStore.MemBuffer
+	return us.buffers[len(us.buffers)-1]
 }
 
 func (us *unionStore) NewStagingBuffer() MemBuffer {
-	return us.BufferStore.NewStagingBuffer()
+	ret := us.buffers[len(us.buffers)-1].NewStagingBuffer()
+	us.buffers = append(us.buffers, ret)
+	return ret
 }
 
 func (us *unionStore) Flush() (int, error) {
-	return us.BufferStore.Flush()
+	r, e := us.buffers[len(us.buffers)-1].Flush()
+	if e == nil {
+		us.buffers = us.buffers[:len(us.buffers)-1]
+	}
+	return r, e
 }
 
 func (us *unionStore) Discard() {
-	us.BufferStore.Discard()
+	us.buffers[len(us.buffers)-1].Discard()
+	us.buffers = us.buffers[:len(us.buffers)-1]
 }
 
 type options map[Option]interface{}

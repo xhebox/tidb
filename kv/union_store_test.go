@@ -15,6 +15,8 @@ package kv
 
 import (
 	"context"
+	"encoding/binary"
+	"testing"
 
 	. "github.com/pingcap/check"
 	"github.com/pingcap/parser/terror"
@@ -163,4 +165,66 @@ func checkIterator(c *C, iter Iterator, keys [][]byte, values [][]byte) {
 		c.Assert(iter.Next(), IsNil)
 	}
 	c.Assert(iter.Valid(), IsFalse)
+}
+
+func BenchmarkUnionIterator(b *testing.B) {
+	snapshotStore := NewMemDbBuffer()
+	snapshot := &mockSnapshot{snapshotStore}
+
+	b.Logf("test size: %d\n", b.N)
+
+	sz := binary.Size(uint32(0))
+	buf := make([]byte, b.N*sz)
+	for i := 0; i < b.N*sz; i += sz {
+		binary.BigEndian.PutUint32(buf[i:], uint32(i))
+	}
+
+	bs := NewBufferStore(snapshot)
+
+	for i := 0; i < b.N*sz; i += sz {
+		bs.Set(buf[i:i+sz], buf[i:i+sz])
+	}
+
+	b.ResetTimer()
+
+	it, _ := bs.Iter(nil, nil)
+	for i := 0; i < b.N; i++ {
+		it.Next()
+	}
+}
+
+func BenchmarkUnionStoreIterator(b *testing.B) {
+	deriveSize := b.N / 4096
+	if deriveSize < 4096 {
+		deriveSize = 4096
+	}
+
+	snapshotStore := NewMemDbBuffer()
+	snapshot := &mockSnapshot{snapshotStore}
+
+	b.Logf("test size: %d, %d\n", b.N, deriveSize)
+
+	sz := binary.Size(uint32(0))
+	buf := make([]byte, b.N*sz)
+	for i := 0; i < b.N*sz; i += sz {
+		binary.BigEndian.PutUint32(buf[i:], uint32(i))
+	}
+
+	bs := NewUnionStore(snapshot)
+
+	bufs := deriveSize
+	for i := 0; i < b.N*sz; i += sz {
+		if bufs == 0 {
+			bs.NewStagingBuffer()
+			bufs = deriveSize
+		}
+		bufs = bufs - 1
+		bs.Set(buf[i:i+sz], buf[i:i+sz])
+	}
+
+	b.ResetTimer()
+	it, _ := bs.Iter(nil, nil)
+	for i := 0; i < b.N; i++ {
+		it.Next()
+	}
 }
