@@ -84,6 +84,62 @@ func (c *LabelConstraint) Restore() (string, error) {
 	return sb.String(), nil
 }
 
+// LabelConstraints is a slice of constraints
+type LabelConstraints []LabelConstraint
+
+// Restore converts the label constraints to a readable string.
+func (constraints *LabelConstraints) Restore() (string, error) {
+	var sb strings.Builder
+	for i, constraint := range *constraints {
+		if i > 0 {
+			sb.WriteByte(',')
+		}
+		sb.WriteByte('"')
+		conStr, err := constraint.Restore()
+		if err != nil {
+			return "", err
+		}
+		sb.WriteString(conStr)
+		sb.WriteByte('"')
+	}
+	return sb.String(), nil
+}
+
+// Add will add a new label constraint, with validation
+func (constraints *LabelConstraints) Add(label LabelConstraint) error {
+	pass := true
+
+	for _, cnst := range *constraints {
+		if label.Key == cnst.Key {
+			sameOp := label.Op == cnst.Op
+			sameVal := label.Values[0] == cnst.Values[0]
+			// no following cases:
+			// 1. duplicated constraint
+			// 2. no instance can meet: +dc=sh, -dc=sh
+			// 3. can not match multiple instances: +dc=sh, +dc=bj
+			if sameOp && sameVal {
+				pass = false
+				break
+			} else if (!sameOp && sameVal) || (sameOp && !sameVal && label.Op == In) {
+				s1, err := label.Restore()
+				if err != nil {
+					s1 = err.Error()
+				}
+				s2, err := cnst.Restore()
+				if err != nil {
+					s2 = err.Error()
+				}
+				return errors.Errorf("conflicting constraints '%s' and '%s'", s1, s2)
+			}
+		}
+	}
+
+	if pass {
+		*constraints = append(*constraints, label)
+	}
+	return nil
+}
+
 // Rule is the placement rule. Check https://github.com/tikv/pd/blob/master/server/schedule/placement/rule.go.
 type Rule struct {
 	GroupID          string            `json:"group_id"`
@@ -94,7 +150,7 @@ type Rule struct {
 	EndKeyHex        string            `json:"end_key"`
 	Role             PeerRoleType      `json:"role"`
 	Count            int               `json:"count"`
-	LabelConstraints []LabelConstraint `json:"label_constraints,omitempty"`
+	LabelConstraints LabelConstraints  `json:"label_constraints,omitempty"`
 	LocationLabels   []string          `json:"location_labels,omitempty"`
 	IsolationLevel   string            `json:"isolation_level,omitempty"`
 }
