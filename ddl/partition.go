@@ -893,7 +893,7 @@ func dropRuleBundles(d *ddlCtx, physicalTableIDs []int64) error {
 		for _, ID := range physicalTableIDs {
 			oldBundle, ok := d.infoHandle.Get().BundleByName(placement.GroupID(ID))
 			if ok && !oldBundle.IsEmpty() {
-				bundles = append(bundles, placement.BuildPlacementDropBundle(ID))
+				bundles = append(bundles, placement.NewBundle(ID))
 			}
 		}
 		err := infosync.PutRuleBundles(context.TODO(), bundles)
@@ -1077,8 +1077,8 @@ func onTruncateTablePartition(d *ddlCtx, t *meta.Meta, job *model.Job) (int64, e
 		for i, oldID := range oldIDs {
 			oldBundle, ok := d.infoHandle.Get().BundleByName(placement.GroupID(oldID))
 			if ok && !oldBundle.IsEmpty() {
-				bundles = append(bundles, placement.BuildPlacementDropBundle(oldID))
-				bundles = append(bundles, placement.BuildPlacementCopyBundle(oldBundle, newPartitions[i].ID))
+				bundles = append(bundles, placement.NewBundle(oldID))
+				bundles = append(bundles, oldBundle.Clone().Reset(newPartitions[i].ID))
 			}
 		}
 

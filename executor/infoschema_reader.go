@@ -1840,12 +1840,12 @@ func (e *memtableRetriever) setDataForPlacementPolicy(ctx sessionctx.Context) er
 	is := infoschema.GetInfoSchema(ctx)
 	var rows [][]types.Datum
 	for _, bundle := range is.RuleBundles() {
-		id, err := placement.ObjectIDFromGroupID(bundle.ID)
+		id, err := bundle.ObjectID()
 		if err != nil {
+			if err == placement.InvalidBundleIDFormat {
+				continue
+			}
 			return errors.Wrapf(err, "Restore bundle %s failed", bundle.ID)
-		}
-		if id == 0 {
-			continue
 		}
 		// Currently, only partitions have placement rules.
 		tb, db, part := is.FindTableByPartitionID(id)
@@ -1856,7 +1856,7 @@ func (e *memtableRetriever) setDataForPlacementPolicy(ctx sessionctx.Context) er
 			continue
 		}
 		for _, rule := range bundle.Rules {
-			constraint, err := rule.LabelConstraints.Restore()
+			constraint, err := rule.Constraints.Restore()
 			if err != nil {
 				return errors.Wrapf(err, "Restore rule %s in bundle %s failed", rule.ID, bundle.ID)
 			}

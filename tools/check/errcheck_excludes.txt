@@ -1,3 +1,4 @@
 fmt.Fprintf
 fmt.Fprint
 fmt.Sscanf
+github.com/pingcap/tidb/ddl/placement/json.Marshal
