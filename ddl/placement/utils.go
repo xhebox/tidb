@@ -24,65 +24,6 @@ import (
 	"github.com/pingcap/tidb/util/codec"
 )
 
-func checkLabelConstraint(label string) (LabelConstraint, error) {
-	r := LabelConstraint{}
-
-	if len(label) < 4 {
-		return r, errors.Errorf("label constraint should be in format '{+|-}key=value', but got '%s'", label)
-	}
-
-	var op LabelConstraintOp
-	switch label[0] {
-	case '+':
-		op = In
-	case '-':
-		op = NotIn
-	default:
-		return r, errors.Errorf("label constraint should be in format '{+|-}key=value', but got '%s'", label)
-	}
-
-	kv := strings.Split(label[1:], "=")
-	if len(kv) != 2 {
-		return r, errors.Errorf("label constraint should be in format '{+|-}key=value', but got '%s'", label)
-	}
-
-	key := strings.TrimSpace(kv[0])
-	if key == "" {
-		return r, errors.Errorf("label constraint should be in format '{+|-}key=value', but got '%s'", label)
-	}
-
-	val := strings.TrimSpace(kv[1])
-	if val == "" {
-		return r, errors.Errorf("label constraint should be in format '{+|-}key=value', but got '%s'", label)
-	}
-
-	if op == In && key == EngineLabelKey && strings.ToLower(val) == EngineLabelTiFlash {
-		return r, errors.Errorf("unsupported label constraint '%s'", label)
-	}
-
-	r.Key = key
-	r.Op = op
-	r.Values = []string{val}
-	return r, nil
-}
-
-// CheckLabelConstraints will check labels, and build LabelConstraints for rule.
-func CheckLabelConstraints(labels []string) (LabelConstraints, error) {
-	constraints := make(LabelConstraints, 0, len(labels))
-	for _, str := range labels {
-		label, err := checkLabelConstraint(strings.TrimSpace(str))
-		if err != nil {
-			return constraints, err
-		}
-
-		err = constraints.Add(label)
-		if err != nil {
-			return constraints, err
-		}
-	}
-	return constraints, nil
-}
-
 // GroupID accepts a tableID or whatever integer, and encode the integer into a valid GroupID for PD.
 func GroupID(id int64) string {
 	return fmt.Sprintf("%s%d", BundleIDPrefix, id)

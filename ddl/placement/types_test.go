@@ -23,6 +23,8 @@ func TestT(t *testing.T) {
 	TestingT(t)
 }
 
+var _ = Suite(&testLabelConstraintsSuite{})
+var _ = Suite(&testLabelConstraintSuite{})
 var _ = Suite(&testBundleSuite{})
 var _ = Suite(&testRuleSuite{})
 
@@ -66,3 +68,210 @@ func (t *testRuleSuite) TestClone(c *C) {
 	c.Assert(rule, DeepEquals, &Rule{ID: "434"})
 	c.Assert(newRule, DeepEquals, &Rule{ID: "121"})
 }
+
+type testLabelConstraintSuite struct{}
+
+func (t *testLabelConstraintSuite) TestNew(c *C) {
+	type TestCase struct {
+		input string
+		label   LabelConstraint
+		err    string
+	}
+	tests := []TestCase{
+		{
+			input: "+zone=bj",
+			label: LabelConstraint{
+				Key: "zone",
+				Op: In,
+				Values: []string{"bj"},
+			},
+			err: "",
+		},
+		{
+			input: "-  dc  =  sh  ",
+			label: LabelConstraint{
+				Key: "dc",
+				Op: NotIn,
+				Values: []string{"sh"},
+			},
+			err: "",
+		},
+		{
+			input: "-engine  =  tiflash  ",
+			label: LabelConstraint{
+				Key: "engine",
+				Op: NotIn,
+				Values: []string{"tiflash"},
+			},
+			err: "",
+		},
+		{
+			input: "+engine=Tiflash",
+			err: ".*unsupported label.*",
+		},
+		// invald
+		{
+			input: ",,,",
+			err: ".*label constraint should be in format.*",
+		},
+		{
+			input: "+    ",
+			err: ".*label constraint should be in format.*",
+		},
+		{
+			input: "0000",
+			err: ".*label constraint should be in format.*",
+		},
+		// without =
+		{
+			input: "+000",
+			err: ".*label constraint should be in format.*",
+		},
+		// empty key
+		{
+			input: "+ =zone1",
+			err: ".*label constraint should be in format.*",
+		},
+		{
+			input: "+  =   z",
+			err: ".*label constraint should be in format.*",
+		},
+		// empty value
+		{
+			input: "+zone=",
+			err: ".*label constraint should be in format.*",
+		},
+		{
+			input: "+z  =   ",
+			err: ".*label constraint should be in format.*",
+		},
+	}
+
+	for _, t := range testCases {
+		if t.err == "" {
+			c.Assert(err, IsNil)
+		} else {
+			c.Assert(err, ErrorMatches, t.err)
+		}
+	}
+}
+
+type testLabelConstraintsSuite struct{}
+
+func (t *testLabelConstraintsSuite) TestNew(c *C) {
+	labels, err := NewLabelConstraints([]string{"+zone=sh", "-zone=sh"})
+	c.Assert(err, ErrorMatches, ".*conflicting constraints.*")
+}
+
+func (t *testLabelConstraintsSuite) TestAdd(c *C) {
+	type TestCase struct {
+		labels  LabelConstraints
+		label   LabelConstraint
+		err    string
+	}
+	tests := []TestCase{}
+
+	labels, err := NewLabelConstraints([]string{"+zone=sh"})
+	c.Assert(err, IsNil)
+	label, err := checkLabelConstraint("-zone=sh")
+	c.Assert(err, IsNil)
+	tests = append(tests, TestCase{labels, label, "conflicting constraints.*"})
+
+	labels, err = NewLabelConstraints([]string{"+zone=sh"})
+	c.Assert(err, IsNil)
+	label, err = checkLabelConstraint("+zone=bj")
+	c.Assert(err, IsNil)
+	tests = append(tests, TestCase{labels, label, "conflicting constraints.*"})
+
+	labels, err = NewLabelConstraints([]string{"+zone=sh"})
+	c.Assert(err, IsNil)
+	label, err = checkLabelConstraint("+zone=sh")
+	c.Assert(err, IsNil)
+	tests = append(tests, TestCase{labels, label, ""})
+
+	for _, t := range tests {
+		err := t.labels.Add(t.label)
+		if t.err == "" {
+			c.Assert(err, IsNil)
+		} else {
+			c.Assert(err, ErrorMatches, t.err)
+		}
+	}
+}
+
+func (t *testLabelConstraintsSuite) TestRestore(c *C) {
+	testCases := []struct {
+		constraints    LabelConstraints
+		expectedResult string
+		expectErr      bool
+	}{
+		{
+			constraints:    LabelConstraints{},
+			expectedResult: ``,
+		},
+		{
+			constraints: LabelConstraints{
+				{
+					Key:    "zone",
+					Op:     "in",
+					Values: []string{"bj"},
+				},
+			},
+			expectedResult: `"+zone=bj"`,
+		},
+		{
+			constraints: LabelConstraints{
+				{
+					Key:    "zone",
+					Op:     "notIn",
+					Values: []string{"bj"},
+				},
+			},
+			expectedResult: `"-zone=bj"`,
+		},
+		{
+			constraints: LabelConstraints{
+				{
+					Key:    "zone",
+					Op:     "exists",
+					Values: []string{"bj"},
+				},
+			},
+			expectErr: true,
+		},
+		{
+			constraints: LabelConstraints{
+				{
+					Key:    "zone",
+					Op:     "in",
+					Values: []string{"bj", "sh"},
+				},
+			},
+			expectedResult: `"+zone=bj,+zone=sh"`,
+		},
+		{
+			constraints: LabelConstraints{
+				{
+					Key:    "zone",
+					Op:     "in",
+					Values: []string{"bj", "sh"},
+				},
+				{
+					Key:    "disk",
+					Op:     "in",
+					Values: []string{"ssd"},
+				},
+			},
+			expectedResult: `"+zone=bj,+zone=sh","+disk=ssd"`,
+		},
+	}
+	for _, testCase := range testCases {
+		rs, err := testCase.constraints.Restore()
+		if testCase.expectErr {
+			c.Assert(err, NotNil)
+		} else {
+			c.Assert(rs, Equals, testCase.expectedResult)
+		}
+	}
+}
+

@@ -5754,7 +5754,7 @@ func buildPlacementSpecReplicasAndConstraint(replicas uint64, cnstr string) ([]*
 			return rules, errors.Errorf("array CONSTRAINTS should be with a positive REPLICAS")
 		}
 
-		labelConstraints, err := placement.CheckLabelConstraints(constraints1)
+		labelConstraints, err := placement.NewLabelConstraints(constraints1)
 		if err != nil {
 			return rules, err
 		}
@@ -5784,7 +5784,7 @@ func buildPlacementSpecReplicasAndConstraint(replicas uint64, cnstr string) ([]*
 				}
 			}
 
-			labelConstraints, err := placement.CheckLabelConstraints(strings.Split(strings.TrimSpace(labels), ","))
+			labelConstraints, err := placement.NewLabelConstraints(strings.Split(strings.TrimSpace(labels), ","))
 			if err != nil {
 				return rules, err
 			}
