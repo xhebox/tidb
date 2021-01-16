@@ -123,7 +123,7 @@ func (b *Bundle) Tidy() error {
 	extraCnt := map[PeerRoleType]int{}
 	newRules := b.Rules[:0]
 	for i, rule := range b.Rules {
-		// useless bundle
+		// useless Rule
 		if rule.Count <= 0 {
 			continue
 		}
