@@ -69,7 +69,7 @@ func (constraints *Constraints) Add(label Constraint) error {
 		}
 		if res == ConstraintDuplicated {
 			pass = false
-			break
+			continue
 		}
 		s1, err := label.Restore()
 		if err != nil {

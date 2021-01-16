@@ -137,15 +137,23 @@ func (t *testRuleSuite) TestNewRules(c *C) {
 	})
 
 	tests = append(tests, TestCase{
-		name:     "zero count in object constraints",
-		input:    `{"+zone=sh,-zone=bj":0, "+zone=sh": 1}`,
-		replicas: 3,
-		err:      ErrInvalidConstraintsMapcnt,
+		name:  "normal object constraints, without count",
+		input: "{'+zone=sh,-zone=bj':2, '+zone=sh': 1}",
+		output: []*Rule{
+			{
+				Count:       2,
+				Constraints: labels1,
+			},
+			{
+				Count:       1,
+				Constraints: labels2,
+			},
+		},
 	})
 
 	tests = append(tests, TestCase{
-		name:     "negative count in object constraints",
-		input:    `{"+zone=sh,-zone=bj":-1, "+zone=sh": 1}`,
+		name:     "zero count in object constraints",
+		input:    `{"+zone=sh,-zone=bj":0, "+zone=sh": 1}`,
 		replicas: 3,
 		err:      ErrInvalidConstraintsMapcnt,
 	})

@@ -65,6 +65,16 @@ func (t *testConstraintsSuite) TestAdd(c *C) {
 		nil,
 	})
 
+	tests = append(tests, TestCase{
+		"duplicated constraints should not stop conflicting constraints check",
+		append(labels, Constraint{
+			Op:     NotIn,
+			Key:    "zone",
+			Values: []string{"sh"},
+		}), label,
+		ErrConflictingConstraints,
+	})
+
 	labels, err = NewConstraints([]string{"+zone=sh"})
 	c.Assert(err, IsNil)
 	tests = append(tests, TestCase{

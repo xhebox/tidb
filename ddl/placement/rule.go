@@ -89,6 +89,10 @@ func NewRules(replicas uint64, cnstr string) ([]*Rule, error) {
 			ruleCnt += cnt
 		}
 
+		if replicas == 0 {
+			replicas = uint64(ruleCnt)
+		}
+
 		if int(replicas) < ruleCnt {
 			return rules, errors.New(ErrInvalidConstraintsRelicas, "should be larger or equal to the number of total replicas, but REPLICAS=%d < total=%d", replicas, ruleCnt)
 		}

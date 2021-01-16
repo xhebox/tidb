@@ -536,10 +536,12 @@ func (s *testBundleSuite) TestTidy(c *C) {
 		},
 	})
 
-	c.Assert(failpoint.Enable("github.com/pingcap/tidb/ddl/placement/MockAddFailure", `return(true)`), IsNil)
-	defer func() {
-		c.Assert(failpoint.Disable("github.com/pingcap/tidb/ddl/placement/MockAddFailure"), IsNil)
-	}()
+	bundle.Rules[2].Constraints = append(bundle.Rules[2].Constraints, Constraint{
+		Op:     In,
+		Key:    EngineLabelKey,
+		Values: []string{EngineLabelTiFlash},
+	})
+	c.Log(bundle.Rules[2])
 	err = bundle.Tidy()
-	c.Assert(err, NotNil)
+	c.Assert(errors.Is(err, ErrConflictingConstraints), IsTrue)
 }

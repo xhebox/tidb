@@ -140,11 +140,6 @@ func (b *Bundle) Tidy() error {
 			Key:    EngineLabelKey,
 			Values: []string{EngineLabelTiFlash},
 		})
-		failpoint.Inject("MockAddFailure", func(val failpoint.Value) {
-			if _, ok := val.(bool); ok {
-				err = errors.New("test")
-			}
-		})
 		if err != nil {
 			return err
 		}
