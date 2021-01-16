@@ -80,6 +80,12 @@ add placement policy
 
 	_, err = tk.Exec(`alter table t1 alter partition p0
 add placement policy
+	constraints="{'+zone=sh': 1}"
+	role=follower`)
+	c.Assert(err, IsNil)
+
+	_, err = tk.Exec(`alter table t1 alter partition p0
+add placement policy
 	constraints='{"+   zone   =   sh  ": 1}'
 	role=follower
 	replicas=3`)
