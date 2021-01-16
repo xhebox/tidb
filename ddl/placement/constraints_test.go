@@ -14,8 +14,8 @@
 package placement
 
 import (
-	"github.com/xhebox/scoperr"
 	. "github.com/pingcap/check"
+	"github.com/xhebox/scoperr"
 )
 
 var _ = Suite(&testConstraintsSuite{})
@@ -30,10 +30,10 @@ func (t *testConstraintsSuite) TestNew(c *C) {
 	c.Assert(err, IsNil)
 
 	_, err = NewConstraints([]string{"+zonesh"})
-	c.Assert(errors.Is(err, InvalidConstraintFormat), IsTrue)
+	c.Assert(errors.Is(err, ErrInvalidConstraintFormat), IsTrue)
 
 	_, err = NewConstraints([]string{"+zone=sh", "-zone=sh"})
-	c.Assert(errors.Is(err, ConflictingConstraints), IsTrue)
+	c.Assert(errors.Is(err, ErrConflictingConstraints), IsTrue)
 }
 
 func (t *testConstraintsSuite) TestAdd(c *C) {
@@ -52,7 +52,7 @@ func (t *testConstraintsSuite) TestAdd(c *C) {
 	tests = append(tests, TestCase{
 		"always false match",
 		labels, label,
-		ConflictingConstraints,
+		ErrConflictingConstraints,
 	})
 
 	labels, err = NewConstraints([]string{"+zone=sh"})
@@ -82,7 +82,7 @@ func (t *testConstraintsSuite) TestAdd(c *C) {
 	tests = append(tests, TestCase{
 		"invalid label in both, same key",
 		Constraints{{Op: "[", Key: "dc"}}, Constraint{Op: "]", Key: "dc"},
-		ConflictingConstraints,
+		ErrConflictingConstraints,
 	})
 
 	labels, err = NewConstraints([]string{"+zone=sh"})
@@ -142,7 +142,7 @@ func (t *testConstraintsSuite) TestRestore(c *C) {
 			Values: []string{"dc1"},
 		}},
 		"",
-		InvalidConstraintFormat,
+		ErrInvalidConstraintFormat,
 	})
 
 	for _, t := range tests {

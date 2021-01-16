@@ -16,18 +16,19 @@ package placement
 import (
 	"encoding/hex"
 
-	"github.com/xhebox/scoperr"
 	. "github.com/pingcap/check"
+	"github.com/pingcap/failpoint"
 	"github.com/pingcap/parser/ast"
 	"github.com/pingcap/tidb/tablecodec"
 	"github.com/pingcap/tidb/util/codec"
+	"github.com/xhebox/scoperr"
 )
 
 var _ = Suite(&testBundleSuite{})
 
 type testBundleSuite struct{}
 
-func (t *testBundleSuite) TestEmpty(c *C) {
+func (s *testBundleSuite) TestEmpty(c *C) {
 	bundle := &Bundle{ID: GroupID(1)}
 	c.Assert(bundle.IsEmpty(), IsTrue)
 
@@ -44,7 +45,7 @@ func (t *testBundleSuite) TestEmpty(c *C) {
 	c.Assert(bundle.IsEmpty(), IsFalse)
 }
 
-func (t *testBundleSuite) TestClone(c *C) {
+func (s *testBundleSuite) TestClone(c *C) {
 	bundle := &Bundle{ID: GroupID(1), Rules: []*Rule{{ID: "434"}}}
 
 	newBundle := bundle.Clone()
@@ -55,19 +56,19 @@ func (t *testBundleSuite) TestClone(c *C) {
 	c.Assert(newBundle, DeepEquals, &Bundle{ID: GroupID(2), Rules: []*Rule{{ID: "121"}}})
 }
 
-func (t *testBundleSuite) TestObjectID(c *C) {
+func (s *testBundleSuite) TestObjectID(c *C) {
 	type TestCase struct {
-		name string
+		name       string
 		bundleID   string
 		expectedID int64
-		err  error
+		err        error
 	}
 	tests := []TestCase{
-		{"non tidb bundle", "pd", 0, InvalidBundleIDFormat},
-		{"id of words", "TiDB_DDL_foo", 0, InvalidBundleID},
-		{"id of words and nums", "TiDB_DDL_3x", 0, InvalidBundleID},
-		{"id of floats", "TiDB_DDL_3.0", 0, InvalidBundleID},
-		{"id of negatives", "TiDB_DDL_-10", 0, InvalidBundleID},
+		{"non tidb bundle", "pd", 0, ErrInvalidBundleIDFormat},
+		{"id of words", "TiDB_DDL_foo", 0, ErrInvalidBundleID},
+		{"id of words and nums", "TiDB_DDL_3x", 0, ErrInvalidBundleID},
+		{"id of floats", "TiDB_DDL_3.0", 0, ErrInvalidBundleID},
+		{"id of negatives", "TiDB_DDL_-10", 0, ErrInvalidBundleID},
 		{"id of positive integer", "TiDB_DDL_10", 10, nil},
 	}
 	for _, t := range tests {
@@ -82,7 +83,7 @@ func (t *testBundleSuite) TestObjectID(c *C) {
 	}
 }
 
-func (t *testBundleSuite) TestGetLeaderDCByBundle(c *C) {
+func (s *testBundleSuite) TestGetLeaderDCByBundle(c *C) {
 	testcases := []struct {
 		name       string
 		bundle     *Bundle
@@ -241,7 +242,7 @@ func (t *testBundleSuite) TestGetLeaderDCByBundle(c *C) {
 
 func (s *testBundleSuite) TestApplyPlacmentSpec(c *C) {
 	type TestCase struct {
-		name string
+		name   string
 		input  []*ast.PlacementSpec
 		output []*Rule
 		err    error
@@ -249,7 +250,7 @@ func (s *testBundleSuite) TestApplyPlacmentSpec(c *C) {
 	var tests []TestCase
 
 	tests = append(tests, TestCase{
-		name: "empty",
+		name:   "empty",
 		input:  []*ast.PlacementSpec{},
 		output: []*Rule{},
 	})
@@ -307,7 +308,7 @@ func (s *testBundleSuite) TestApplyPlacmentSpec(c *C) {
 			Replicas:    3,
 			Constraints: "ne",
 		}},
-		err: InvalidConstraintsFormat,
+		err: ErrInvalidConstraintsFormat,
 	})
 
 	tests = append(tests, TestCase{
@@ -317,7 +318,7 @@ func (s *testBundleSuite) TestApplyPlacmentSpec(c *C) {
 			Replicas:    3,
 			Constraints: "",
 		}},
-		err: MissingRoleField,
+		err: ErrMissingRoleField,
 	})
 
 	tests = append(tests, TestCase{
@@ -328,7 +329,7 @@ func (s *testBundleSuite) TestApplyPlacmentSpec(c *C) {
 			Replicas:    3,
 			Constraints: "",
 		}},
-		err: LeaderReplicasMustOne,
+		err: ErrLeaderReplicasMustOne,
 	})
 
 	rules, err = NewRules(1, "")
@@ -365,8 +366,8 @@ func (s *testBundleSuite) TestApplyPlacmentSpec(c *C) {
 				Constraints: `["+  zone=sh", "-zone = bj"]`,
 			},
 			{
-				Role:        ast.PlacementRoleVoter,
-				Tp:          ast.PlacementDrop,
+				Role: ast.PlacementRoleVoter,
+				Tp:   ast.PlacementDrop,
 			},
 		},
 		output: rules,
@@ -379,7 +380,7 @@ func (s *testBundleSuite) TestApplyPlacmentSpec(c *C) {
 			Tp:          ast.PlacementDrop,
 			Constraints: "",
 		}},
-		err: NoRulesToDrop,
+		err: ErrNoRulesToDrop,
 	})
 
 	rules1, err := NewRules(3, `["-zone=sh","+zone=bj"]`)
@@ -440,6 +441,12 @@ func (s *testBundleSuite) TestString(c *C) {
 	bundle.Rules = append(rules1, rules2...)
 
 	c.Assert(bundle.String(), Equals, `{"group_id":"TiDB_DDL_1","group_index":0,"group_override":false,"rules":[{"group_id":"","id":"","start_key":"","end_key":"","role":"","count":3,"label_constraints":[{"key":"zone","op":"in","values":["sh"]}]},{"group_id":"","id":"","start_key":"","end_key":"","role":"","count":4,"label_constraints":[{"key":"zone","op":"notIn","values":["sh"]},{"key":"zone","op":"in","values":["bj"]}]}]}`)
+
+	c.Assert(failpoint.Enable("github.com/pingcap/tidb/ddl/placement/MockMarshalFailure", `return(true)`), IsNil)
+	defer func() {
+		c.Assert(failpoint.Disable("github.com/pingcap/tidb/ddl/placement/MockMarshalFailure"), IsNil)
+	}()
+	c.Assert(bundle.String(), Equals, "")
 }
 
 func (s *testBundleSuite) TestNew(c *C) {
@@ -486,7 +493,8 @@ func (s *testBundleSuite) TestTidy(c *C) {
 	bundle.Rules = append(bundle.Rules, rules1...)
 	bundle.Rules = append(bundle.Rules, rules2...)
 
-	bundle = bundle.Tidy()
+	err = bundle.Tidy()
+	c.Assert(err, IsNil)
 	c.Assert(bundle.Rules, HasLen, 2)
 	c.Assert(bundle.Rules[0].ID, Equals, "1")
 	c.Assert(bundle.Rules[0].Constraints, HasLen, 3)
@@ -513,7 +521,8 @@ func (s *testBundleSuite) TestTidy(c *C) {
 	bundle.Rules = append(bundle.Rules, rules3...)
 	bundle.Rules = append(bundle.Rules, rules4...)
 
-	bundle = bundle.Tidy()
+	err = bundle.Tidy()
+	c.Assert(err, IsNil)
 	c.Assert(bundle.Rules, HasLen, 3)
 	c.Assert(bundle.Rules[0].ID, Equals, "0")
 	c.Assert(bundle.Rules[1].ID, Equals, "1")
@@ -526,4 +535,11 @@ func (s *testBundleSuite) TestTidy(c *C) {
 			Values: []string{EngineLabelTiFlash},
 		},
 	})
+
+	c.Assert(failpoint.Enable("github.com/pingcap/tidb/ddl/placement/MockAddFailure", `return(true)`), IsNil)
+	defer func() {
+		c.Assert(failpoint.Disable("github.com/pingcap/tidb/ddl/placement/MockAddFailure"), IsNil)
+	}()
+	err = bundle.Tidy()
+	c.Assert(err, NotNil)
 }

@@ -47,7 +47,7 @@ func NewConstraint(label string) (Constraint, error) {
 	r := Constraint{}
 
 	if len(label) < 4 {
-		return r, errors.New(InvalidConstraintFormat, label)
+		return r, errors.New(ErrInvalidConstraintFormat, label)
 	}
 
 	var op ConstraintOp
@@ -57,26 +57,26 @@ func NewConstraint(label string) (Constraint, error) {
 	case '-':
 		op = NotIn
 	default:
-		return r, errors.New(InvalidConstraintFormat, label)
+		return r, errors.New(ErrInvalidConstraintFormat, label)
 	}
 
 	kv := strings.Split(label[1:], "=")
 	if len(kv) != 2 {
-		return r, errors.New(InvalidConstraintFormat, label)
+		return r, errors.New(ErrInvalidConstraintFormat, label)
 	}
 
 	key := strings.TrimSpace(kv[0])
 	if key == "" {
-		return r, errors.New(InvalidConstraintFormat, label)
+		return r, errors.New(ErrInvalidConstraintFormat, label)
 	}
 
 	val := strings.TrimSpace(kv[1])
 	if val == "" {
-		return r, errors.New(InvalidConstraintFormat, label)
+		return r, errors.New(ErrInvalidConstraintFormat, label)
 	}
 
 	if op == In && key == EngineLabelKey && strings.ToLower(val) == EngineLabelTiFlash {
-		return r, errors.New(UnsupportedConstraint, label)
+		return r, errors.New(ErrUnsupportedConstraint, label)
 	}
 
 	r.Key = key
@@ -89,7 +89,7 @@ func NewConstraint(label string) (Constraint, error) {
 func (c *Constraint) Restore() (string, error) {
 	var sb strings.Builder
 	if len(c.Values) != 1 {
-		return "", errors.New(InvalidConstraintFormat, "constraint should have exactly one label value, got %v", c.Values)
+		return "", errors.New(ErrInvalidConstraintFormat, "constraint should have exactly one label value, got %v", c.Values)
 	}
 	switch c.Op {
 	case In:
@@ -97,7 +97,7 @@ func (c *Constraint) Restore() (string, error) {
 	case NotIn:
 		sb.WriteString("-")
 	default:
-		return "", errors.New(InvalidConstraintFormat, "disallowed operation '%s'", c.Op)
+		return "", errors.New(ErrInvalidConstraintFormat, "disallowed operation '%s'", c.Op)
 	}
 	sb.WriteString(c.Key)
 	sb.WriteString("=")
@@ -120,9 +120,9 @@ type ConstraintCompatibility byte
 const (
 	// ConstraintCompatible indicates two constraints are compatible.
 	ConstraintCompatible ConstraintCompatibility = iota
-	// ConstraintCompatible indicates two constraints are incompatible.
+	// ConstraintIncompatible indicates two constraints are incompatible.
 	ConstraintIncompatible
-	// ConstraintCompatible indicates two constraints are duplicated.
+	// ConstraintDuplicated indicates two constraints are duplicated.
 	ConstraintDuplicated
 )
 

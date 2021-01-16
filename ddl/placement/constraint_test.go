@@ -14,9 +14,8 @@
 package placement
 
 import (
-
-	"github.com/xhebox/scoperr"
 	. "github.com/pingcap/check"
+	"github.com/xhebox/scoperr"
 )
 
 var _ = Suite(&testConstraintSuite{})
@@ -61,48 +60,48 @@ func (t *testConstraintSuite) TestNew(c *C) {
 		{
 			name:  "disabllow tiflash",
 			input: "+engine=Tiflash",
-			err:   UnsupportedConstraint,
+			err:   ErrUnsupportedConstraint,
 		},
 		// invald
 		{
 			name:  "invalid length",
 			input: ",,,",
-			err:   InvalidConstraintFormat,
+			err:   ErrInvalidConstraintFormat,
 		},
 		{
 			name:  "invalid, lack = 1",
 			input: "+    ",
-			err:   InvalidConstraintFormat,
+			err:   ErrInvalidConstraintFormat,
 		},
 		{
 			name:  "invalid, lack = 2",
 			input: "+000",
-			err:   InvalidConstraintFormat,
+			err:   ErrInvalidConstraintFormat,
 		},
 		{
 			name:  "invalid op",
 			input: "0000",
-			err:   InvalidConstraintFormat,
+			err:   ErrInvalidConstraintFormat,
 		},
 		{
 			name:  "empty key 1",
 			input: "+ =zone1",
-			err:   InvalidConstraintFormat,
+			err:   ErrInvalidConstraintFormat,
 		},
 		{
 			name:  "empty key 2",
 			input: "+  =   z",
-			err:   InvalidConstraintFormat,
+			err:   ErrInvalidConstraintFormat,
 		},
 		{
 			name:  "empty value 1",
 			input: "+zone=",
-			err:   InvalidConstraintFormat,
+			err:   ErrInvalidConstraintFormat,
 		},
 		{
 			name:  "empty value 2",
 			input: "+z  =   ",
-			err:   InvalidConstraintFormat,
+			err:   ErrInvalidConstraintFormat,
 		},
 	}
 
@@ -158,7 +157,7 @@ func (t *testConstraintSuite) TestRestore(c *C) {
 			Key:    "dc",
 			Values: []string{},
 		},
-		err: InvalidConstraintFormat,
+		err: ErrInvalidConstraintFormat,
 	})
 
 	tests = append(tests, TestCase{
@@ -168,7 +167,7 @@ func (t *testConstraintSuite) TestRestore(c *C) {
 			Key:    "dc",
 			Values: []string{"dc1", "dc2"},
 		},
-		err: InvalidConstraintFormat,
+		err: ErrInvalidConstraintFormat,
 	})
 
 	tests = append(tests, TestCase{
@@ -178,7 +177,7 @@ func (t *testConstraintSuite) TestRestore(c *C) {
 			Key:    "dc",
 			Values: []string{},
 		},
-		err: InvalidConstraintFormat,
+		err: ErrInvalidConstraintFormat,
 	})
 
 	for _, t := range tests {

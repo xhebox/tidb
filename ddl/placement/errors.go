@@ -18,26 +18,26 @@ import (
 )
 
 var (
-	// InvalidConstraintFormat is from constraint.go.
-	InvalidConstraintFormat = errors.New("label constraint should be in format '{+|-}key=value'")
-	// UnsupportedConstraint is from constraint.go.
-	UnsupportedConstraint   = errors.New("unsupported label constraint")
-	// ConflictingConstraints is from constraints.go. 
-	ConflictingConstraints  = errors.New("conflicting label constraints")
-	// InvalidConstraintsMapcnt is from rule.go. 
-	InvalidConstraintsMapcnt = errors.New("label constraints in map syntax have invalid replicas")
-	// InvalidConstraintsFormat is from rule.go. 
-	InvalidConstraintsFormat = errors.New("invalid label constraints format")
-	// InvalidConstraintsRelicas is from rule.go. 
-	InvalidConstraintsReplicas = errors.New("label constraints with invalid REPLICAS")
-	// InvalidBundleID is from bundle.go. 
-	InvalidBundleID = errors.New("invalid bundle ID")
-	// InvalidBundleIDFormat is from bundle.go. 
-	InvalidBundleIDFormat = errors.New("invalid bundle ID format")
-	// LeaderReplicasMustOne is from bundle.go.
-	LeaderReplicasMustOne = errors.New("REPLICAS must be 1 if ROLE=leader")
-	// MissingRoleField is from bundle.go.
-	MissingRoleField = errors.New("the ROLE field is not specified")
-	// NoRulesToDrop is from bundle.go.
-	NoRulesToDrop = errors.New("no rule of such role to drop")
+	// ErrInvalidConstraintFormat is from constraint.go.
+	ErrInvalidConstraintFormat = errors.New("label constraint should be in format '{+|-}key=value'")
+	// ErrUnsupportedConstraint is from constraint.go.
+	ErrUnsupportedConstraint = errors.New("unsupported label constraint")
+	// ErrConflictingConstraints is from constraints.go.
+	ErrConflictingConstraints = errors.New("conflicting label constraints")
+	// ErrInvalidConstraintsMapcnt is from rule.go.
+	ErrInvalidConstraintsMapcnt = errors.New("label constraints in map syntax have invalid replicas")
+	// ErrInvalidConstraintsFormat is from rule.go.
+	ErrInvalidConstraintsFormat = errors.New("invalid label constraints format")
+	// ErrInvalidConstraintsRelicas is from rule.go.
+	ErrInvalidConstraintsRelicas = errors.New("label constraints with invalid REPLICAS")
+	// ErrInvalidBundleID is from bundle.go.
+	ErrInvalidBundleID = errors.New("invalid bundle ID")
+	// ErrInvalidBundleIDFormat is from bundle.go.
+	ErrInvalidBundleIDFormat = errors.New("invalid bundle ID format")
+	// ErrLeaderReplicasMustOne is from bundle.go.
+	ErrLeaderReplicasMustOne = errors.New("REPLICAS must be 1 if ROLE=leader")
+	// ErrMissingRoleField is from bundle.go.
+	ErrMissingRoleField = errors.New("the ROLE field is not specified")
+	// ErrNoRulesToDrop is from bundle.go.
+	ErrNoRulesToDrop = errors.New("no rule of such role to drop")
 )

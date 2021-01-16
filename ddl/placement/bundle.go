@@ -14,15 +14,16 @@
 package placement
 
 import (
-	"encoding/json"
 	"encoding/hex"
+	"encoding/json"
 	"strconv"
 	"strings"
 
-	"github.com/xhebox/scoperr"
+	"github.com/pingcap/failpoint"
 	"github.com/pingcap/parser/ast"
 	"github.com/pingcap/tidb/tablecodec"
 	"github.com/pingcap/tidb/util/codec"
+	"github.com/xhebox/scoperr"
 )
 
 // Refer to https://github.com/tikv/pd/issues/2701 .
@@ -46,8 +47,8 @@ func NewBundle(id int64) *Bundle {
 	}
 }
 
-// ApplyPlacementSpec will apply actions defined in PlacementSpec to the bundle. 
-func (bundle *Bundle) ApplyPlacementSpec(specs []*ast.PlacementSpec) error {
+// ApplyPlacementSpec will apply actions defined in PlacementSpec to the bundle.
+func (b *Bundle) ApplyPlacementSpec(specs []*ast.PlacementSpec) error {
 	for _, spec := range specs {
 		var role PeerRoleType
 		switch spec.Role {
@@ -58,7 +59,7 @@ func (bundle *Bundle) ApplyPlacementSpec(specs []*ast.PlacementSpec) error {
 				spec.Replicas = 1
 			}
 			if spec.Replicas > 1 {
-				return LeaderReplicasMustOne
+				return ErrLeaderReplicasMustOne
 			}
 			role = Leader
 		case ast.PlacementRoleLearner:
@@ -66,24 +67,24 @@ func (bundle *Bundle) ApplyPlacementSpec(specs []*ast.PlacementSpec) error {
 		case ast.PlacementRoleVoter:
 			role = Voter
 		default:
-			return MissingRoleField
+			return ErrMissingRoleField
 		}
 
 		if spec.Tp == ast.PlacementAlter || spec.Tp == ast.PlacementDrop {
-			origLen := len(bundle.Rules)
-			newRules := bundle.Rules[:0]
-			for _, r := range bundle.Rules {
+			origLen := len(b.Rules)
+			newRules := b.Rules[:0]
+			for _, r := range b.Rules {
 				if r.Role != role {
 					newRules = append(newRules, r)
 				}
 			}
-			bundle.Rules = newRules
+			b.Rules = newRules
 
 			// alter == drop + add new rules
 			if spec.Tp == ast.PlacementDrop {
 				// error if no rules will be dropped
-				if len(bundle.Rules) == origLen {
-					return errors.New(NoRulesToDrop, "%s", role)
+				if len(b.Rules) == origLen {
+					return errors.New(ErrNoRulesToDrop, "%s", role)
 				}
 				continue
 			}
@@ -96,7 +97,7 @@ func (bundle *Bundle) ApplyPlacementSpec(specs []*ast.PlacementSpec) error {
 		}
 		for _, r := range newRules {
 			r.Role = role
-			bundle.Rules = append(bundle.Rules, r)
+			b.Rules = append(b.Rules, r)
 		}
 	}
 
@@ -105,12 +106,20 @@ func (bundle *Bundle) ApplyPlacementSpec(specs []*ast.PlacementSpec) error {
 
 // String implements fmt.Stringer.
 func (b *Bundle) String() string {
-	t, _ := json.Marshal(b)
+	t, err := json.Marshal(b)
+	failpoint.Inject("MockMarshalFailure", func(val failpoint.Value) {
+		if _, ok := val.(bool); ok {
+			err = errors.New("test")
+		}
+	})
+	if err != nil {
+		return ""
+	}
 	return string(t)
 }
 
 // Tidy will post optimize Rules, trying to generate rules that suits PD.
-func (b *Bundle) Tidy() *Bundle {
+func (b *Bundle) Tidy() error {
 	extraCnt := map[PeerRoleType]int{}
 	newRules := b.Rules[:0]
 	for i, rule := range b.Rules {
@@ -126,20 +135,28 @@ func (b *Bundle) Tidy() *Bundle {
 		// refer to tidb#22065.
 		// add -engine=tiflash to every rule to avoid schedules to tiflash instances.
 		// placement rules in SQL is not compatible with `set tiflash replica` yet
-		rule.Constraints.Add(Constraint{
+		err := rule.Constraints.Add(Constraint{
 			Op:     NotIn,
 			Key:    EngineLabelKey,
 			Values: []string{EngineLabelTiFlash},
 		})
+		failpoint.Inject("MockAddFailure", func(val failpoint.Value) {
+			if _, ok := val.(bool); ok {
+				err = errors.New("test")
+			}
+		})
+		if err != nil {
+			return err
+		}
 		rule.ID = strconv.Itoa(i)
 		newRules = append(newRules, rule)
 	}
 	for role, cnt := range extraCnt {
 		// refer to tidb#22065.
 		newRules = append(newRules, &Rule{
-			ID:          string(role),
-			Role:        role,
-			Count:       cnt,
+			ID:    string(role),
+			Role:  role,
+			Count: cnt,
 			Constraints: []Constraint{{
 				Op:     NotIn,
 				Key:    EngineLabelKey,
@@ -148,7 +165,7 @@ func (b *Bundle) Tidy() *Bundle {
 		})
 	}
 	b.Rules = newRules
-	return b
+	return nil
 }
 
 // Reset resets the bundle ID and keyrange of all rules.
@@ -186,14 +203,14 @@ func (b *Bundle) IsEmpty() bool {
 func (b *Bundle) ObjectID() (int64, error) {
 	// If the rule doesn't come from TiDB, skip it.
 	if !strings.HasPrefix(b.ID, BundleIDPrefix) {
-		return 0, InvalidBundleIDFormat
+		return 0, ErrInvalidBundleIDFormat
 	}
 	id, err := strconv.ParseInt(b.ID[len(BundleIDPrefix):], 10, 64)
 	if err != nil {
-		return 0, errors.New(InvalidBundleID, err)
+		return 0, errors.New(ErrInvalidBundleID, err)
 	}
 	if id <= 0 {
-		return 0, errors.New(InvalidBundleID, "%s doesn't include an id", b.ID)
+		return 0, errors.New(ErrInvalidBundleID, "%s doesn't include an id", b.ID)
 	}
 	return id, nil
 }
@@ -208,7 +225,7 @@ func isValidLeaderRule(rule *Rule, dcLabelKey string) bool {
 	return false
 }
 
-// GetLeaderDCByBundle returns the leader's DC by Bundle if found.
+// GetLeaderDC returns the leader's DC by Bundle if found.
 func (b *Bundle) GetLeaderDC(dcLabelKey string) (string, bool) {
 	for _, rule := range b.Rules {
 		if isValidLeaderRule(rule, dcLabelKey) {

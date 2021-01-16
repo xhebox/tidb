@@ -16,8 +16,8 @@ package placement
 import (
 	"encoding/json"
 
-	"github.com/xhebox/scoperr"
 	. "github.com/pingcap/check"
+	"github.com/xhebox/scoperr"
 )
 
 var _ = Suite(&testRuleSuite{})
@@ -80,7 +80,7 @@ func (t *testRuleSuite) TestNewRules(c *C) {
 		name:     "zero replicas",
 		input:    "",
 		replicas: 0,
-		err:      InvalidConstraintsReplicas,
+		err:      ErrInvalidConstraintsRelicas,
 	})
 
 	labels, err := NewConstraints([]string{"+zone=sh", "+zone=sh"})
@@ -140,49 +140,49 @@ func (t *testRuleSuite) TestNewRules(c *C) {
 		name:     "zero count in object constraints",
 		input:    `{"+zone=sh,-zone=bj":0, "+zone=sh": 1}`,
 		replicas: 3,
-		err:      InvalidConstraintsMapcnt,
+		err:      ErrInvalidConstraintsMapcnt,
 	})
 
 	tests = append(tests, TestCase{
 		name:     "negative count in object constraints",
 		input:    `{"+zone=sh,-zone=bj":-1, "+zone=sh": 1}`,
 		replicas: 3,
-		err:      InvalidConstraintsMapcnt,
+		err:      ErrInvalidConstraintsMapcnt,
 	})
 
 	tests = append(tests, TestCase{
 		name:     "overlarge total count in object constraints",
 		input:    `{"+ne=sh,-zone=bj":1, "+zone=sh": 4}`,
 		replicas: 3,
-		err:      InvalidConstraintsReplicas,
+		err:      ErrInvalidConstraintsRelicas,
 	})
 
 	tests = append(tests, TestCase{
 		name:     "invalid array",
 		input:    `["+ne=sh", "+zone=sh"`,
 		replicas: 3,
-		err:      InvalidConstraintsFormat,
+		err:      ErrInvalidConstraintsFormat,
 	})
 
 	tests = append(tests, TestCase{
 		name:     "invalid array constraints",
 		input:    `["ne=sh", "+zone=sh"]`,
 		replicas: 3,
-		err:      InvalidConstraintFormat,
+		err:      ErrInvalidConstraintFormat,
 	})
 
 	tests = append(tests, TestCase{
 		name:     "invalid map",
 		input:    `{+ne=sh,-zone=bj:1, "+zone=sh": 4`,
 		replicas: 5,
-		err:      InvalidConstraintsFormat,
+		err:      ErrInvalidConstraintsFormat,
 	})
 
 	tests = append(tests, TestCase{
 		name:     "invalid map constraints",
 		input:    `{"nesh,-zone=bj":1, "+zone=sh": 4}`,
 		replicas: 6,
-		err:      InvalidConstraintFormat,
+		err:      ErrInvalidConstraintFormat,
 	})
 
 	for _, t := range tests {

@@ -62,7 +62,7 @@ func NewRules(replicas uint64, cnstr string) ([]*Rule, error) {
 	if err1 == nil {
 		// can not emit REPLICAS with an array or empty label
 		if replicas == 0 {
-			return rules, errors.New(InvalidConstraintsReplicas, "should be positive")
+			return rules, errors.New(ErrInvalidConstraintsRelicas, "should be positive")
 		}
 
 		labelConstraints, err := NewConstraints(constraints1)
@@ -84,13 +84,13 @@ func NewRules(replicas uint64, cnstr string) ([]*Rule, error) {
 		ruleCnt := 0
 		for labels, cnt := range constraints2 {
 			if cnt <= 0 {
-				return rules, errors.New(InvalidConstraintsMapcnt, "count of labels '%s' should be positive, but got %d", labels, cnt)
+				return rules, errors.New(ErrInvalidConstraintsMapcnt, "count of labels '%s' should be positive, but got %d", labels, cnt)
 			}
 			ruleCnt += cnt
 		}
 
 		if int(replicas) < ruleCnt {
-			return rules, errors.New(InvalidConstraintsReplicas, "should be larger or equal to the number of total replicas, but REPLICAS=%d < total=%d", replicas, ruleCnt)
+			return rules, errors.New(ErrInvalidConstraintsRelicas, "should be larger or equal to the number of total replicas, but REPLICAS=%d < total=%d", replicas, ruleCnt)
 		}
 
 		for labels, cnt := range constraints2 {
@@ -115,7 +115,7 @@ func NewRules(replicas uint64, cnstr string) ([]*Rule, error) {
 		return rules, nil
 	}
 
-	return nil, errors.New(InvalidConstraintsFormat, err1, err2, "should be [constraint1, ...], {constraint1: cnt1, ...}, or any yaml compatible representation")
+	return nil, errors.New(ErrInvalidConstraintsFormat, err1, err2, "should be [constraint1, ...], {constraint1: cnt1, ...}, or any yaml compatible representation")
 }
 
 // Clone is used to duplicate a RuleOp for safe modification.
@@ -126,4 +126,3 @@ func (r *Rule) Clone() *Rule {
 	*n = *r
 	return n
 }
-

@@ -79,7 +79,7 @@ func (constraints *Constraints) Add(label Constraint) error {
 		if err != nil {
 			s2 = err.Error()
 		}
-		return errors.New(ConflictingConstraints, "'%s' and '%s'", s1, s2)
+		return errors.New(ErrConflictingConstraints, "'%s' and '%s'", s1, s2)
 	}
 
 	if pass {

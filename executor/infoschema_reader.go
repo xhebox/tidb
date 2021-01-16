@@ -1842,7 +1842,7 @@ func (e *memtableRetriever) setDataForPlacementPolicy(ctx sessionctx.Context) er
 	for _, bundle := range is.RuleBundles() {
 		id, err := bundle.ObjectID()
 		if err != nil {
-			if err == placement.InvalidBundleIDFormat {
+			if err == placement.ErrInvalidBundleIDFormat {
 				continue
 			}
 			return errors.Wrapf(err, "Restore bundle %s failed", bundle.ID)

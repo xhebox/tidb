@@ -5763,11 +5763,15 @@ func (d *ddl) AlterTableAlterPartition(ctx sessionctx.Context, ident ast.Ident, 
 		restoreCtx := format.NewRestoreCtx(format.RestoreStringSingleQuotes|format.RestoreKeyWordLowercase|format.RestoreNameBackQuotes, &sb)
 
 		if e := spec.Restore(restoreCtx); e != nil {
-		} else {
+			return ErrInvalidPlacementSpec.GenWithStackByArgs("", err)
 		}
+		return ErrInvalidPlacementSpec.GenWithStackByArgs(sb.String(), err)
 	}
 
-	bundle.Tidy()
+	err = bundle.Tidy()
+	if err != nil {
+		return errors.Trace(err)
+	}
 	bundle.Reset(partitionID)
 
 	if len(bundle.Rules) == 0 {
