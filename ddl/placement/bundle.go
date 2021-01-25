@@ -211,10 +211,11 @@ func (b *Bundle) ObjectID() (int64, error) {
 }
 
 func isValidLeaderRule(rule *Rule, dcLabelKey string) bool {
-	if rule.Role == Leader && rule.Count == 1 && len(rule.Constraints) == 1 {
-		cons := rule.Constraints[0]
-		if cons.Op == In && cons.Key == dcLabelKey && len(cons.Values) == 1 {
-			return true
+	if rule.Role == Leader && rule.Count == 1 {
+		for _, con := range rule.Constraints {
+			if con.Op == In && con.Key == dcLabelKey && len(con.Values) == 1 {
+				return true
+			}
 		}
 	}
 	return false

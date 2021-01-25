@@ -227,6 +227,105 @@ func (s *testBundleSuite) TestGetLeaderDCByBundle(c *C) {
 			},
 			expectedDC: "",
 		},
+		{
+			name: "irrelvant rules",
+			bundle: &Bundle{
+				ID: GroupID(1),
+				Rules: []*Rule{
+					{
+						ID:   "15",
+						Role: Leader,
+						Constraints: Constraints{
+							{
+								Key:    EngineLabelKey,
+								Op:     NotIn,
+								Values: []string{EngineLabelTiFlash},
+							},
+						},
+						Count: 1,
+					},
+					{
+						ID:   "14",
+						Role: Leader,
+						Constraints: Constraints{
+							{
+								Key:    "disk",
+								Op:     NotIn,
+								Values: []string{"ssd", "hdd"},
+							},
+						},
+						Count: 1,
+					},
+					{
+						ID:   "13",
+						Role: Leader,
+						Constraints: Constraints{
+							{
+								Key:    "zone",
+								Op:     In,
+								Values: []string{"bj"},
+							},
+						},
+						Count: 1,
+					},
+				},
+			},
+			expectedDC: "bj",
+		},
+		{
+			name: "multi leaders 1",
+			bundle: &Bundle{
+				ID: GroupID(1),
+				Rules: []*Rule{
+					{
+						ID:   "16",
+						Role: Leader,
+						Constraints: Constraints{
+							{
+								Key:    "zone",
+								Op:     In,
+								Values: []string{"sh"},
+							},
+						},
+						Count: 2,
+					},
+				},
+			},
+			expectedDC: "",
+		},
+		{
+			name: "multi leaders 2",
+			bundle: &Bundle{
+				ID: GroupID(1),
+				Rules: []*Rule{
+					{
+						ID:   "17",
+						Role: Leader,
+						Constraints: Constraints{
+							{
+								Key:    "zone",
+								Op:     In,
+								Values: []string{"sh"},
+							},
+						},
+						Count: 1,
+					},
+					{
+						ID:   "18",
+						Role: Leader,
+						Constraints: Constraints{
+							{
+								Key:    "zone",
+								Op:     In,
+								Values: []string{"bj"},
+							},
+						},
+						Count: 1,
+					},
+				},
+			},
+			expectedDC: "sh",
+		},
 	}
 	for _, testcase := range testcases {
 		comment := Commentf("%s", testcase.name)
