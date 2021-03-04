@@ -620,20 +620,28 @@ func (s *testBundleSuite) TestTidy(c *C) {
 	bundle.Rules = append(bundle.Rules, rules3...)
 	bundle.Rules = append(bundle.Rules, rules4...)
 
+	chkfunc := func() {
+		c.Assert(err, IsNil)
+		c.Assert(bundle.Rules, HasLen, 3)
+		c.Assert(bundle.Rules[0].ID, Equals, "0")
+		c.Assert(bundle.Rules[1].ID, Equals, "1")
+		c.Assert(bundle.Rules[2].ID, Equals, "follower")
+		c.Assert(bundle.Rules[2].Count, Equals, 9)
+		c.Assert(bundle.Rules[2].Constraints, DeepEquals, Constraints{
+			{
+				Op:     NotIn,
+				Key:    EngineLabelKey,
+				Values: []string{EngineLabelTiFlash},
+			},
+		})
+	}
 	err = bundle.Tidy()
-	c.Assert(err, IsNil)
-	c.Assert(bundle.Rules, HasLen, 3)
-	c.Assert(bundle.Rules[0].ID, Equals, "0")
-	c.Assert(bundle.Rules[1].ID, Equals, "1")
-	c.Assert(bundle.Rules[2].ID, Equals, "follower")
-	c.Assert(bundle.Rules[2].Count, Equals, 9)
-	c.Assert(bundle.Rules[2].Constraints, DeepEquals, Constraints{
-		{
-			Op:     NotIn,
-			Key:    EngineLabelKey,
-			Values: []string{EngineLabelTiFlash},
-		},
-	})
+	chkfunc()
+
+	// tidy again
+	// it should be stable
+	err = bundle.Tidy()
+	chkfunc()
 
 	bundle.Rules[2].Constraints = append(bundle.Rules[2].Constraints, Constraint{
 		Op:     In,

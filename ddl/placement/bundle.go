@@ -143,6 +143,11 @@ func (b *Bundle) Tidy() error {
 		if err != nil {
 			return err
 		}
+		// added -engine=tiflash, and it is the only constraint
+		if len(rule.Constraints) == 1 {
+			extraCnt[rule.Role] += rule.Count
+			continue
+		}
 		rule.ID = strconv.Itoa(i)
 		newRules = append(newRules, rule)
 	}
