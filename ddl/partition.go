@@ -1282,14 +1282,14 @@ func (w *worker) onExchangeTablePartition(d *ddlCtx, t *meta.Meta, job *model.Jo
 		ntBundle, ntOK := d.infoHandle.Get().BundleByName(placement.GroupID(nt.ID))
 		ntOK = ntOK && !ntBundle.IsEmpty()
 		if ptOK && ntOK {
-			bundles = append(bundles, placement.BuildPlacementCopyBundle(ptBundle, nt.ID))
-			bundles = append(bundles, placement.BuildPlacementCopyBundle(ntBundle, partDef.ID))
+			bundles = append(bundles, ptBundle.Clone().Reset(nt.ID))
+			bundles = append(bundles, ntBundle.Clone().Reset(partDef.ID))
 		} else if ptOK {
-			bundles = append(bundles, placement.BuildPlacementDropBundle(partDef.ID))
-			bundles = append(bundles, placement.BuildPlacementCopyBundle(ptBundle, nt.ID))
+			bundles = append(bundles, placement.NewBundle(partDef.ID))
+			bundles = append(bundles, ptBundle.Clone().Reset(nt.ID))
 		} else if ntOK {
-			bundles = append(bundles, placement.BuildPlacementDropBundle(nt.ID))
-			bundles = append(bundles, placement.BuildPlacementCopyBundle(ntBundle, partDef.ID))
+			bundles = append(bundles, placement.NewBundle(nt.ID))
+			bundles = append(bundles, ntBundle.Clone().Reset(partDef.ID))
 		}
 		err = infosync.PutRuleBundles(context.TODO(), bundles)
 		if err != nil {
