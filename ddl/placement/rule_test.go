@@ -15,9 +15,9 @@ package placement
 
 import (
 	"encoding/json"
+	"errors"
 
 	. "github.com/pingcap/check"
-	"github.com/xhebox/scoperr"
 )
 
 var _ = Suite(&testRuleSuite{})

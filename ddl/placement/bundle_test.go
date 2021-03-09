@@ -14,6 +14,7 @@
 package placement
 
 import (
+	"errors"
 	"encoding/hex"
 
 	. "github.com/pingcap/check"
@@ -21,7 +22,6 @@ import (
 	"github.com/pingcap/parser/ast"
 	"github.com/pingcap/tidb/tablecodec"
 	"github.com/pingcap/tidb/util/codec"
-	"github.com/xhebox/scoperr"
 )
 
 var _ = Suite(&testBundleSuite{})

@@ -16,14 +16,16 @@ package placement
 import (
 	"encoding/hex"
 	"encoding/json"
+	"errors"
+	"fmt"
 	"strconv"
 	"strings"
 
+	"github.com/hashicorp/go-multierror"
 	"github.com/pingcap/failpoint"
 	"github.com/pingcap/parser/ast"
 	"github.com/pingcap/tidb/tablecodec"
 	"github.com/pingcap/tidb/util/codec"
-	"github.com/xhebox/scoperr"
 )
 
 // Refer to https://github.com/tikv/pd/issues/2701 .
@@ -84,7 +86,7 @@ func (b *Bundle) ApplyPlacementSpec(specs []*ast.PlacementSpec) error {
 			if spec.Tp == ast.PlacementDrop {
 				// error if no rules will be dropped
 				if len(b.Rules) == origLen {
-					return errors.New(ErrNoRulesToDrop, "%s", role)
+					return fmt.Errorf("%w: %s", ErrNoRulesToDrop, role)
 				}
 				continue
 			}
@@ -207,10 +209,10 @@ func (b *Bundle) ObjectID() (int64, error) {
 	}
 	id, err := strconv.ParseInt(b.ID[len(BundleIDPrefix):], 10, 64)
 	if err != nil {
-		return 0, errors.New(ErrInvalidBundleID, err)
+		return 0, multierror.Append(ErrInvalidBundleID, err)
 	}
 	if id <= 0 {
-		return 0, errors.New(ErrInvalidBundleID, "%s doesn't include an id", b.ID)
+		return 0, fmt.Errorf("%w: %s doesn't include an id", ErrInvalidBundleID, b.ID)
 	}
 	return id, nil
 }

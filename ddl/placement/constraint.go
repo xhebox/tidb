@@ -14,9 +14,8 @@
 package placement
 
 import (
+	"fmt"
 	"strings"
-
-	"github.com/xhebox/scoperr"
 )
 
 // ConstraintOp defines how a Constraint matches a store.
@@ -47,7 +46,7 @@ func NewConstraint(label string) (Constraint, error) {
 	r := Constraint{}
 
 	if len(label) < 4 {
-		return r, errors.New(ErrInvalidConstraintFormat, label)
+		return r, fmt.Errorf("%w: %s", ErrInvalidConstraintFormat, label)
 	}
 
 	var op ConstraintOp
@@ -57,26 +56,26 @@ func NewConstraint(label string) (Constraint, error) {
 	case '-':
 		op = NotIn
 	default:
-		return r, errors.New(ErrInvalidConstraintFormat, label)
+		return r, fmt.Errorf("%w: %s", ErrInvalidConstraintFormat, label)
 	}
 
 	kv := strings.Split(label[1:], "=")
 	if len(kv) != 2 {
-		return r, errors.New(ErrInvalidConstraintFormat, label)
+		return r, fmt.Errorf("%w: %s", ErrInvalidConstraintFormat, label)
 	}
 
 	key := strings.TrimSpace(kv[0])
 	if key == "" {
-		return r, errors.New(ErrInvalidConstraintFormat, label)
+		return r, fmt.Errorf("%w: %s", ErrInvalidConstraintFormat, label)
 	}
 
 	val := strings.TrimSpace(kv[1])
 	if val == "" {
-		return r, errors.New(ErrInvalidConstraintFormat, label)
+		return r, fmt.Errorf("%w: %s", ErrInvalidConstraintFormat, label)
 	}
 
 	if op == In && key == EngineLabelKey && strings.ToLower(val) == EngineLabelTiFlash {
-		return r, errors.New(ErrUnsupportedConstraint, label)
+		return r, fmt.Errorf("%w: %s", ErrUnsupportedConstraint, label)
 	}
 
 	r.Key = key
@@ -89,7 +88,7 @@ func NewConstraint(label string) (Constraint, error) {
 func (c *Constraint) Restore() (string, error) {
 	var sb strings.Builder
 	if len(c.Values) != 1 {
-		return "", errors.New(ErrInvalidConstraintFormat, "constraint should have exactly one label value, got %v", c.Values)
+		return "", fmt.Errorf("%w: constraint should have exactly one label value, got %v", ErrInvalidConstraintFormat, c.Values)
 	}
 	switch c.Op {
 	case In:
@@ -97,7 +96,7 @@ func (c *Constraint) Restore() (string, error) {
 	case NotIn:
 		sb.WriteString("-")
 	default:
-		return "", errors.New(ErrInvalidConstraintFormat, "disallowed operation '%s'", c.Op)
+		return "", fmt.Errorf("%w: disallowed operation '%s'", ErrInvalidConstraintFormat, c.Op)
 	}
 	sb.WriteString(c.Key)
 	sb.WriteString("=")

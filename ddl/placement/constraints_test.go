@@ -14,8 +14,9 @@
 package placement
 
 import (
+	"errors"
+
 	. "github.com/pingcap/check"
-	"github.com/xhebox/scoperr"
 )
 
 var _ = Suite(&testConstraintsSuite{})

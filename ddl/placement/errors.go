@@ -14,7 +14,7 @@
 package placement
 
 import (
-	"github.com/xhebox/scoperr"
+	"errors"
 )
 
 var (
