@@ -26,6 +26,7 @@ import (
 	"sync/atomic"
 	"time"
 
+	gerrors "errors"
 	"github.com/opentracing/opentracing-go"
 	"github.com/pingcap/errors"
 	"github.com/pingcap/failpoint"
@@ -81,6 +82,7 @@ import (
 	"github.com/pingcap/tidb/util/versioninfo"
 	"github.com/prometheus/client_golang/prometheus"
 	"github.com/prometheus/client_golang/prometheus/push"
+	"github.com/spf13/cobra"
 	"github.com/tikv/client-go/v2/tikv"
 	"github.com/tikv/client-go/v2/txnkv/transaction"
 	pd "github.com/tikv/pd/client"
@@ -88,179 +90,154 @@ import (
 	"go.uber.org/zap"
 )
 
-// Flag Names
-const (
-	nmVersion          = "V"
-	nmConfig           = "config"
-	nmConfigCheck      = "config-check"
-	nmConfigStrict     = "config-strict"
-	nmStore            = "store"
-	nmStorePath        = "path"
-	nmHost             = "host"
-	nmAdvertiseAddress = "advertise-address"
-	nmPort             = "P"
-	nmCors             = "cors"
-	nmSocket           = "socket"
-	nmEnableBinlog     = "enable-binlog"
-	nmRunDDL           = "run-ddl"
-	nmLogLevel         = "L"
-	nmLogFile          = "log-file"
-	nmLogSlowQuery     = "log-slow-query"
-	nmReportStatus     = "report-status"
-	nmStatusHost       = "status-host"
-	nmStatusPort       = "status"
-	nmMetricsAddr      = "metrics-addr"
-	nmMetricsInterval  = "metrics-interval"
-	nmDdlLease         = "lease"
-	nmTokenLimit       = "token-limit"
-	nmPluginDir        = "plugin-dir"
-	nmPluginLoad       = "plugin-load"
-	nmRepairMode       = "repair-mode"
-	nmRepairList       = "repair-list"
-	nmTempDir          = "temp-dir"
-
-	nmProxyProtocolNetworks      = "proxy-protocol-networks"
-	nmProxyProtocolHeaderTimeout = "proxy-protocol-header-timeout"
-	nmProxyProtocolFallbackable  = "proxy-protocol-fallbackable"
-	nmAffinityCPU                = "affinity-cpus"
-
-	nmInitializeSecure            = "initialize-secure"
-	nmInitializeInsecure          = "initialize-insecure"
-	nmInitializeSQLFile           = "initialize-sql-file"
-	nmDisconnectOnExpiredPassword = "disconnect-on-expired-password"
-	nmKeyspaceName                = "keyspace-name"
-)
-
-var (
-	version      = flagBoolean(nmVersion, false, "print version information and exit")
-	configPath   = flag.String(nmConfig, "", "config file path")
-	configCheck  = flagBoolean(nmConfigCheck, false, "check config file validity and exit")
-	configStrict = flagBoolean(nmConfigStrict, false, "enforce config file validity")
-
-	// Base
-	store            = flag.String(nmStore, "unistore", "registered store name, [tikv, mocktikv, unistore]")
-	storePath        = flag.String(nmStorePath, "/tmp/tidb", "tidb storage path")
-	host             = flag.String(nmHost, "0.0.0.0", "tidb server host")
-	advertiseAddress = flag.String(nmAdvertiseAddress, "", "tidb server advertise IP")
-	port             = flag.String(nmPort, "4000", "tidb server port")
-	cors             = flag.String(nmCors, "", "tidb server allow cors origin")
-	socket           = flag.String(nmSocket, "/tmp/tidb-{Port}.sock", "The socket file to use for connection.")
-	enableBinlog     = flagBoolean(nmEnableBinlog, false, "enable generate binlog")
-	runDDL           = flagBoolean(nmRunDDL, true, "run ddl worker on this tidb-server")
-	ddlLease         = flag.String(nmDdlLease, "45s", "schema lease duration, very dangerous to change only if you know what you do")
-	tokenLimit       = flag.Int(nmTokenLimit, 1000, "the limit of concurrent executed sessions")
-	pluginDir        = flag.String(nmPluginDir, "/data/deploy/plugin", "the folder that hold plugin")
-	pluginLoad       = flag.String(nmPluginLoad, "", "wait load plugin name(separated by comma)")
-	affinityCPU      = flag.String(nmAffinityCPU, "", "affinity cpu (cpu-no. separated by comma, e.g. 1,2,3)")
-	repairMode       = flagBoolean(nmRepairMode, false, "enable admin repair mode")
-	repairList       = flag.String(nmRepairList, "", "admin repair table list")
-	tempDir          = flag.String(nmTempDir, config.DefTempDir, "tidb temporary directory")
-
-	// Log
-	logLevel     = flag.String(nmLogLevel, "info", "log level: info, debug, warn, error, fatal")
-	logFile      = flag.String(nmLogFile, "", "log file path")
-	logSlowQuery = flag.String(nmLogSlowQuery, "", "slow query file path")
-
-	// Status
-	reportStatus    = flagBoolean(nmReportStatus, true, "If enable status report HTTP service.")
-	statusHost      = flag.String(nmStatusHost, "0.0.0.0", "tidb server status host")
-	statusPort      = flag.String(nmStatusPort, "10080", "tidb server status port")
-	metricsAddr     = flag.String(nmMetricsAddr, "", "prometheus pushgateway address, leaves it empty will disable prometheus push.")
-	metricsInterval = flag.Uint(nmMetricsInterval, 15, "prometheus client push interval in second, set \"0\" to disable prometheus push.")
-
-	// PROXY Protocol
-	proxyProtocolNetworks      = flag.String(nmProxyProtocolNetworks, "", "proxy protocol networks allowed IP or *, empty mean disable proxy protocol support")
-	proxyProtocolHeaderTimeout = flag.Uint(nmProxyProtocolHeaderTimeout, 5, "proxy protocol header read timeout, unit is second. (Deprecated: as proxy protocol using lazy mode, header read timeout no longer used)")
-	proxyProtocolFallbackable  = flagBoolean(nmProxyProtocolFallbackable, false, "enable proxy protocol fallback mode. If it is enabled, connection will return the client IP address when the client does not send PROXY Protocol Header and it will not return any error. (Note: This feature it does NOT follow the PROXY Protocol SPEC)")
-
-	// Bootstrap and security
-	initializeSecure            = flagBoolean(nmInitializeSecure, false, "bootstrap tidb-server in secure mode")
-	initializeInsecure          = flagBoolean(nmInitializeInsecure, true, "bootstrap tidb-server in insecure mode")
-	initializeSQLFile           = flag.String(nmInitializeSQLFile, "", "SQL file to execute on first bootstrap")
-	disconnectOnExpiredPassword = flagBoolean(nmDisconnectOnExpiredPassword, true, "the server disconnects the client when the password is expired")
-	keyspaceName                = flag.String(nmKeyspaceName, "", "keyspace name.")
-)
-
 func main() {
-	help := flag.Bool("help", false, "show the usage")
-	flag.Parse()
-	if *help {
-		flag.Usage()
-		os.Exit(0)
-	}
-	config.InitializeConfig(*configPath, *configCheck, *configStrict, overrideConfig)
-	if *version {
-		setVersions()
-		fmt.Println(printer.GetTiDBInfo())
-		os.Exit(0)
-	}
-	registerStores()
-	err := metricsutil.RegisterMetrics()
-	terror.MustNil(err)
+	ctx := Background()
+	rootCmd := NewRootCmd(&ctx.params)
+	rootCmd.PersistentPreRunE = func(cmd *cobra.Command, args []string) error {
+		ctx := cmd.Context().(*Context)
+		params := ctx.params
+		var err error
+		config.InitializeConfig(params.configPath, params.configCheck, params.configStrict, func(cfg *config.Config) {
+			flagSet := cmd.Flags()
 
-	if variable.EnableTmpStorageOnOOM.Load() {
-		config.GetGlobalConfig().UpdateTempStoragePath()
-		err := disk.InitializeTempDir()
+			if params.host != "" {
+				cfg.Host = params.host
+			}
+
+			if params.advertiseAddress != "" {
+				if len(strings.Split(params.advertiseAddress, " ")) > 1 {
+					err = errors.Errorf("Only support one advertise-address")
+					return
+				}
+				cfg.AdvertiseAddress = params.advertiseAddress
+			}
+			if cfg.AdvertiseAddress == "" && cfg.Host == "0.0.0.0" {
+				cfg.AdvertiseAddress = util.GetLocalIP()
+			}
+			if cfg.AdvertiseAddress == "" {
+				cfg.AdvertiseAddress = cfg.Host
+			}
+
+			return nil
+		})
+		if *version {
+			setVersions()
+			fmt.Println(printer.GetTiDBInfo())
+			os.Exit(0)
+		}
+	}
+	rootCmd.Run = func(cmd *cobra.Command, args []string) {
+		config.InitializeConfig(*configPath, *configCheck, *configStrict, overrideConfig)
+		if *version {
+			setVersions()
+			fmt.Println(printer.GetTiDBInfo())
+			os.Exit(0)
+		}
+		registerStores()
+		err := metricsutil.RegisterMetrics()
 		terror.MustNil(err)
-		checkTempStorageQuota()
-	}
-	setupLog()
-	setupExtensions()
-	setupStmtSummary()
 
-	err = cpuprofile.StartCPUProfiler()
-	terror.MustNil(err)
+		if variable.EnableTmpStorageOnOOM.Load() {
+			config.GetGlobalConfig().UpdateTempStoragePath()
+			err := disk.InitializeTempDir()
+			terror.MustNil(err)
 
-	if config.GetGlobalConfig().DisaggregatedTiFlash && config.GetGlobalConfig().UseAutoScaler {
-		err = tiflashcompute.InitGlobalTopoFetcher(
-			config.GetGlobalConfig().TiFlashComputeAutoScalerType,
-			config.GetGlobalConfig().TiFlashComputeAutoScalerAddr,
-			config.GetGlobalConfig().AutoScalerClusterID,
-			config.GetGlobalConfig().IsTiFlashComputeFixedPool)
+			// Enable failpoints in tikv/client-go if the test API is enabled.
+			// It appears in the main function to be set before any use of client-go to prevent data race.
+			if _, err := failpoint.Status("github.com/pingcap/tidb/server/enableTestAPI"); err == nil {
+				warnMsg := "tikv/client-go failpoint is enabled, this should NOT happen in the production environment"
+				logutil.BgLogger().Warn(warnMsg)
+				tikv.EnableFailpoints()
+			}
+			setGlobalVars()
+			setCPUAffinity()
+			setupTracing() // Should before createServer and after setup config.
+			printInfo()
+			setupBinlogClient()
+			setupMetrics()
+
+			storage, dom := createStoreAndDomain()
+			svr := createServer(storage, dom)
+
+			// Register error API is not thread-safe, the caller MUST NOT register errors after initialization.
+			// To prevent misuse, set a flag to indicate that register new error will panic immediately.
+			// For regression of issue like https://github.com/pingcap/tidb/issues/28190
+			terror.RegisterFinish()
+
+			exited := make(chan struct{})
+			signal.SetupSignalHandler(func(graceful bool) {
+				svr.Close()
+				cleanup(svr, storage, dom, graceful)
+				cpuprofile.StopCPUProfiler()
+				close(exited)
+			})
+			topsql.SetupTopSQL()
+			terror.MustNil(svr.Run())
+			<-exited
+			syncLog()
+		}
+		setupLog()
+		setupExtensions()
+		setupStmtSummary()
+
+		err = cpuprofile.StartCPUProfiler()
 		terror.MustNil(err)
+
+		if config.GetGlobalConfig().DisaggregatedTiFlash && config.GetGlobalConfig().UseAutoScaler {
+			err = tiflashcompute.InitGlobalTopoFetcher(
+				config.GetGlobalConfig().TiFlashComputeAutoScalerType,
+				config.GetGlobalConfig().TiFlashComputeAutoScalerAddr,
+				config.GetGlobalConfig().AutoScalerClusterID,
+				config.GetGlobalConfig().IsTiFlashComputeFixedPool)
+			terror.MustNil(err)
+		}
+
+		// Enable failpoints in tikv/client-go if the test API is enabled.
+		// It appears in the main function to be set before any use of client-go to prevent data race.
+		if _, err := failpoint.Status("github.com/pingcap/tidb/server/enableTestAPI"); err == nil {
+			warnMsg := "tikv/client-go failpoint is enabled, this should NOT happen in the production environment"
+			logutil.BgLogger().Warn(warnMsg)
+			tikv.EnableFailpoints()
+		}
+		setGlobalVars()
+		setCPUAffinity()
+		setupTracing() // Should before createServer and after setup config.
+		printInfo()
+		setupBinlogClient()
+		setupMetrics()
+
+		keyspaceName := keyspace.GetKeyspaceNameBySettings()
+		executor.Start()
+		resourcemanager.InstanceResourceManager.Start()
+		storage, dom := createStoreAndDomain(keyspaceName)
+		svr := createServer(storage, dom)
+
+		// Register error API is not thread-safe, the caller MUST NOT register errors after initialization.
+		// To prevent misuse, set a flag to indicate that register new error will panic immediately.
+		// For regression of issue like https://github.com/pingcap/tidb/issues/28190
+		terror.RegisterFinish()
+
+		exited := make(chan struct{})
+		signal.SetupSignalHandler(func() {
+			svr.Close()
+			cleanup(svr, storage, dom)
+			cpuprofile.StopCPUProfiler()
+			resourcemanager.InstanceResourceManager.Stop()
+			executor.Stop()
+			close(exited)
+		})
+		topsql.SetupTopSQL()
+		if config.GetGlobalConfig().Performance.ForceInitStats {
+			<-dom.StatsHandle().InitStatsDone
+		}
+		terror.MustNil(svr.Run())
+		<-exited
+		syncLog()
 	}
 
-	// Enable failpoints in tikv/client-go if the test API is enabled.
-	// It appears in the main function to be set before any use of client-go to prevent data race.
-	if _, err := failpoint.Status("github.com/pingcap/tidb/server/enableTestAPI"); err == nil {
-		warnMsg := "tikv/client-go failpoint is enabled, this should NOT happen in the production environment"
-		logutil.BgLogger().Warn(warnMsg)
-		tikv.EnableFailpoints()
+	if err := rootCmd.ExecuteContext(context.Background()); err != nil {
+		log.Fatal("can not run", zap.Error(err))
 	}
-	setGlobalVars()
-	setCPUAffinity()
-	setupTracing() // Should before createServer and after setup config.
-	printInfo()
-	setupBinlogClient()
-	setupMetrics()
-
-	keyspaceName := keyspace.GetKeyspaceNameBySettings()
-	executor.Start()
-	resourcemanager.InstanceResourceManager.Start()
-	storage, dom := createStoreAndDomain(keyspaceName)
-	svr := createServer(storage, dom)
-
-	// Register error API is not thread-safe, the caller MUST NOT register errors after initialization.
-	// To prevent misuse, set a flag to indicate that register new error will panic immediately.
-	// For regression of issue like https://github.com/pingcap/tidb/issues/28190
-	terror.RegisterFinish()
-
-	exited := make(chan struct{})
-	signal.SetupSignalHandler(func() {
-		svr.Close()
-		cleanup(svr, storage, dom)
-		cpuprofile.StopCPUProfiler()
-		resourcemanager.InstanceResourceManager.Stop()
-		executor.Stop()
-		close(exited)
-	})
-	topsql.SetupTopSQL()
-	if config.GetGlobalConfig().Performance.ForceInitStats {
-		<-dom.StatsHandle().InitStatsDone
-	}
-	terror.MustNil(svr.Run())
-	<-exited
-	syncLog()
 }
 
 func syncLog() {
