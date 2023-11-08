@@ -1,0 +1,5 @@
+# Profiling artifacts.
+cpu.*.prof
+heap.prof
+mutex.prof
+testdata
