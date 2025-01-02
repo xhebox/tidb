@@ -2470,6 +2470,7 @@ const (
 	AdminShowBDRRole
 	AdminUnsetBDRRole
 	AdminAlterDDLJob
+	AdminWorkloadRepoCreate
 )
 
 // HandleRange represents a range where handle value >= Begin and < End.
@@ -2770,6 +2771,8 @@ func (n *AdminStmt) Restore(ctx *format.RestoreCtx) error {
 				return errors.Annotatef(err, "An error occurred while restore AdminStmt.AlterJobOptions[%d]", i)
 			}
 		}
+	case AdminWorkloadRepoCreate:
+		ctx.WriteKeyWord("CREATE WORKLOAD SNAPSHOT")
 	default:
 		return errors.New("Unsupported AdminStmt type")
 	}

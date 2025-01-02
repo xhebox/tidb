@@ -11204,6 +11204,10 @@ AdminStmt:
 			Index:  string($5),
 		}
 	}
+|	"ADMIN" "CREATE" "WORKLOAD" "SNAPSHOT"
+	{
+		$$ = &ast.AdminStmt{Tp: ast.AdminWorkloadRepoCreate}
+	}
 |	"ADMIN" "CLEANUP" "INDEX" TableName Identifier
 	{
 		$$ = &ast.AdminStmt{
