@@ -318,6 +318,8 @@ func (b *executorBuilder) build(p base.Plan) exec.Executor {
 		return b.buildExpand(v)
 	case *plannercore.RecommendIndexPlan:
 		return b.buildRecommendIndex(v)
+	case *plannercore.WorkloadRepoCreate:
+		return b.buildWorkloadRepoCreate(v)
 	default:
 		if mp, ok := p.(testutil.MockPhysicalPlan); ok {
 			return mp.GetExecutor()
@@ -5694,4 +5696,9 @@ func (b *executorBuilder) buildRecommendIndex(v *plannercore.RecommendIndexPlan)
 		AdviseID:     v.AdviseID,
 		Options:      v.Options,
 	}
+}
+
+func (b *executorBuilder) buildWorkloadRepoCreate(_ *plannercore.WorkloadRepoCreate) exec.Executor {
+	base := exec.NewBaseExecutor(b.ctx, nil, 0)
+	return &WorkloadRepoCreateExec{base}
 }
