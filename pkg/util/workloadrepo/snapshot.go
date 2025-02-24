@@ -156,6 +156,10 @@ func (w *worker) takeSnapshot(ctx context.Context) (uint64, error) {
 	for range snapshotRetries {
 		isEmpty := false
 		snapID, err = w.getSnapID(ctx)
+		// Sometimes, a new etcd cluster without persisted snap_id may be used,
+		// e.g. serverless TiDB or manually cleaned PD.
+		// In such case, we can query the maximum snap_id in the table,
+		//  and try to recover that snap_id directly by a etcd transaction.
 		if stderrors.Is(err, errKeyNotFound) {
 			snapID, err = queryMaxSnapID(ctx, sess)
 			isEmpty = true

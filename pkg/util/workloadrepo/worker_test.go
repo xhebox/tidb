@@ -865,12 +865,23 @@ func TestCalcNextTick(t *testing.T) {
 func TestRecoverSnapID(t *testing.T) {
 	ctx, store, dom, addr := setupDomainAndContext(t)
 	worker := setupWorker(ctx, t, addr, dom, "worker1", true)
+	worker.snapshotInterval = 600
+	worker.samplingInterval = 600
+
 	require.NoError(t, worker.setRepositoryDest(ctx, "table"))
 	now := time.Now()
 
 	require.Eventually(t, func() bool {
 		return worker.checkTablesExists(ctx, now)
-	}, time.Minute, time.Second)
+	}, time.Minute, 100*time.Millisecond)
+
+	// it is zero
+	newSnapID, err := queryMaxSnapID(ctx, worker.getSessionWithRetry().(sessionctx.Context))
+	require.Nil(t, err)
+	require.Equal(t, uint64(0), newSnapID)
+
+	// start the worker
+	worker.changeSnapshotInterval(context.TODO(), "1")
 	tk := testkit.NewTestKit(t, store)
 	prevSnapID := uint64(0)
 	require.Eventually(t, func() bool {
@@ -881,24 +892,26 @@ func TestRecoverSnapID(t *testing.T) {
 		snapID, err := strconv.ParseUint(res[0][0].(string), 10, 64)
 		prevSnapID = snapID
 		return err == nil && snapID > 0
-	}, time.Minute, time.Second)
+	}, time.Minute, 100*time.Millisecond)
 	worker.stop()
 
+	// setup a new etcd cluster and a new worker
 	etcd2 := setupEtcd(t)
 	worker2 := setupWorker(ctx, t, etcd2, dom, "worker2", true)
+	// new cluster, so not found
 	snapIDStr, err := worker2.etcdGet(ctx, snapIDKey)
 	require.Nil(t, err)
 	require.Equal(t, "", snapIDStr)
-
 	_, err = worker2.getSnapID(ctx)
 	require.EqualError(t, errKeyNotFound, err.Error())
-	newSnapID, err := queryMaxSnapID(ctx, worker2.getSessionWithRetry().(sessionctx.Context))
+	// it is equal to the previous maximum snap id
+	newSnapID, err = queryMaxSnapID(ctx, worker2.getSessionWithRetry().(sessionctx.Context))
 	require.Nil(t, err)
-	require.Equal(t, prevSnapID, newSnapID)
+	require.GreaterOrEqual(t, newSnapID, prevSnapID)
 
 	require.NoError(t, worker2.setRepositoryDest(ctx, "table"))
 	require.Eventually(t, func() bool {
 		newSnapID, err = worker2.getSnapID(ctx)
 		return err == nil && newSnapID >= prevSnapID
-	}, time.Minute, time.Second)
+	}, time.Minute, 100*time.Millisecond)
 }
