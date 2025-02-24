@@ -863,7 +863,7 @@ func TestCalcNextTick(t *testing.T) {
 }
 
 func TestRecoverSnapID(t *testing.T) {
-	ctx, store, dom, addr := setupDomainAndContext(t)
+	ctx, _, dom, addr := setupDomainAndContext(t)
 	worker := setupWorker(ctx, t, addr, dom, "worker1", true)
 	worker.snapshotInterval = 600
 	worker.samplingInterval = 600
@@ -882,19 +882,14 @@ func TestRecoverSnapID(t *testing.T) {
 
 	// start the worker
 	worker.changeSnapshotInterval(context.TODO(), "1")
-	tk := testkit.NewTestKit(t, store)
 	prevSnapID := uint64(0)
 	require.Eventually(t, func() bool {
-		res := tk.MustQuery("select max(snap_id) from workload_schema.hist_snapshots").Rows()
-		if len(res) == 0 || len(res[0]) == 0 {
-			return false
-		}
-		snapID, err := strconv.ParseUint(res[0][0].(string), 10, 64)
-		prevSnapID = snapID
-		return err == nil && snapID > 0
+		prevSnapID, err = worker.getSnapID(ctx)
+		return err == nil && prevSnapID > 0
 	}, time.Minute, 100*time.Millisecond)
 
 	// wait for worker to stop
+	worker.stop()
 	require.Eventually(t, func() bool {
 		return worker.cancel == nil
 	}, time.Second*10, time.Millisecond*100)
