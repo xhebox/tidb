@@ -883,7 +883,10 @@ func TestRecoverSnapID(t *testing.T) {
 		return err == nil && snapID > 0
 	}, time.Minute, time.Second)
 	worker.stop()
-
+	// wait for worker to stop
+	require.Eventually(t, func() bool {
+		return worker.cancel == nil
+	}, time.Second*10, time.Millisecond*100)
 	etcd2 := setupEtcd(t)
 	worker2 := setupWorker(ctx, t, etcd2, dom, "worker2", true)
 	snapIDStr, err := worker2.etcdGet(ctx, snapIDKey)
