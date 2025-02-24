@@ -911,8 +911,9 @@ func TestRecoverSnapID(t *testing.T) {
 	// it is equal to the previous maximum snap id
 	newSnapID, err = queryMaxSnapID(ctx, worker2.getSessionWithRetry().(sessionctx.Context))
 	require.Nil(t, err)
-	require.GreaterOrEqual(t, newSnapID, prevSnapID)
+	require.Equal(t, newSnapID, prevSnapID)
 
+	// start the new worker and snapID is recovered
 	require.NoError(t, worker2.setRepositoryDest(ctx, "table"))
 	require.Eventually(t, func() bool {
 		newSnapID, err = worker2.getSnapID(ctx)
