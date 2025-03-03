@@ -39,7 +39,7 @@ func IsTemplateSysDB(dbname pmodel.CIStr) bool {
 // IsSysDB tests whether the database is system DB.
 // Currently, both `mysql` and `sys` are system DB.
 func IsSysDB(dbLowerName string) bool {
-	return dbLowerName == mysql.SystemDB || dbLowerName == mysql.SysDB
+	return dbLowerName == mysql.SystemDB || dbLowerName == mysql.SysDB || dbLowerName == mysql.WorkloadSchema
 }
 
 // TemporaryDBName makes a 'private' database name.

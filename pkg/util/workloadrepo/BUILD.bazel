@@ -56,6 +56,7 @@ go_test(
         "//pkg/kv",
         "//pkg/owner",
         "//pkg/parser/model",
+        "//pkg/parser/mysql",
         "//pkg/sessionctx",
         "//pkg/sessionctx/variable",
         "//pkg/testkit",
