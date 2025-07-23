@@ -521,7 +521,7 @@ var fieldTypeMergeRules = [fieldTypeNum][fieldTypeNum]byte{
 		// mysql.TypeDatetime     mysql.TypeYear
 		mysql.TypeVarchar, mysql.TypeLong,
 		// mysql.TypeNewDate      mysql.TypeVarchar
-		mysql.TypeVarchar, mysql.TypeVarchar,
+		mysql.TypeVarchar, mysql.TypeLong,
 		// mysql.TypeBit          <16>-<244>
 		mysql.TypeLonglong,
 		// mysql.TypeJSON
@@ -533,9 +533,9 @@ var fieldTypeMergeRules = [fieldTypeNum][fieldTypeNum]byte{
 		// mysql.TypeMediumBlob  mysql.TypeLongBlob
 		mysql.TypeMediumBlob, mysql.TypeLongBlob,
 		// mysql.TypeBlob         mysql.TypeVarString
-		mysql.TypeBlob, mysql.TypeVarchar,
+		mysql.TypeBlob, mysql.TypeLong,
 		// mysql.TypeString       mysql.TypeGeometry
-		mysql.TypeString, mysql.TypeVarchar,
+		mysql.TypeLong, mysql.TypeVarchar,
 	},
 	/* mysql.TypeFloat -> */
 	{
@@ -686,7 +686,7 @@ var fieldTypeMergeRules = [fieldTypeNum][fieldTypeNum]byte{
 		// mysql.TypeDatetime     mysql.TypeYear
 		mysql.TypeVarchar, mysql.TypeLonglong,
 		// mysql.TypeNewDate      mysql.TypeVarchar
-		mysql.TypeNewDate, mysql.TypeVarchar,
+		mysql.TypeNewDate, mysql.TypeLonglong,
 		// mysql.TypeBit          <16>-<244>
 		mysql.TypeLonglong,
 		// mysql.TypeJSON
@@ -698,9 +698,9 @@ var fieldTypeMergeRules = [fieldTypeNum][fieldTypeNum]byte{
 		// mysql.TypeMediumBlob  mysql.TypeLongBlob
 		mysql.TypeMediumBlob, mysql.TypeLongBlob,
 		// mysql.TypeBlob         mysql.TypeVarString
-		mysql.TypeBlob, mysql.TypeVarchar,
+		mysql.TypeBlob, mysql.TypeLonglong,
 		// mysql.TypeString       mysql.TypeGeometry
-		mysql.TypeString, mysql.TypeVarchar,
+		mysql.TypeLonglong, mysql.TypeVarchar,
 	},
 	/* mysql.TypeInt24 -> */
 	{
@@ -1016,7 +1016,7 @@ var fieldTypeMergeRules = [fieldTypeNum][fieldTypeNum]byte{
 		// mysql.TypeDatetime     mysql.TypeYear
 		mysql.TypeVarchar, mysql.TypeNewDecimal,
 		// mysql.TypeNewDate      mysql.TypeVarchar
-		mysql.TypeVarchar, mysql.TypeVarchar,
+		mysql.TypeVarchar, mysql.TypeNewDecimal,
 		// mysql.TypeBit          <16>-<244>
 		mysql.TypeNewDecimal,
 		// mysql.TypeJSON
@@ -1028,9 +1028,9 @@ var fieldTypeMergeRules = [fieldTypeNum][fieldTypeNum]byte{
 		// mysql.TypeMediumBlob  mysql.TypeLongBlob
 		mysql.TypeMediumBlob, mysql.TypeLongBlob,
 		// mysql.TypeBlob         mysql.TypeVarString
-		mysql.TypeBlob, mysql.TypeVarchar,
+		mysql.TypeBlob, mysql.TypeNewDecimal,
 		// mysql.TypeString       mysql.TypeGeometry
-		mysql.TypeString, mysql.TypeVarchar,
+		mysql.TypeNewDecimal, mysql.TypeVarchar,
 	},
 	/* mysql.TypeEnum -> */
 	{
