@@ -71,6 +71,9 @@ func ConvertColumnInfo(fld *ast.ResultField) (ci *Info) {
 			ci.ColumnLength *= uint32(charsetDesc.Maxlen)
 		}
 	}
+	if types.IsString(fld.Column.GetType()) && ci.ColumnLength < 256 {
+		ci.ColumnLength = 256
+	}
 
 	if fld.Column.GetDecimal() == types.UnspecifiedLength {
 		if fld.Column.GetType() == mysql.TypeDuration {

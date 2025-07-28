@@ -164,9 +164,9 @@ race: failpoint-enable
 
 server:
 ifeq ($(TARGET), "")
-	CGO_ENABLED=1 $(GOBUILD) $(RACE_FLAG) -ldflags '$(LDFLAGS) $(CHECK_FLAG)' -o bin/tidb-server ./cmd/tidb-server
+	CGO_ENABLED=0 $(GOBUILD) $(RACE_FLAG) -ldflags '$(LDFLAGS) $(CHECK_FLAG)' -o bin/tidb-server ./cmd/tidb-server
 else
-	CGO_ENABLED=1 $(GOBUILD) $(RACE_FLAG) -ldflags '$(LDFLAGS) $(CHECK_FLAG)' -o '$(TARGET)' ./cmd/tidb-server
+	CGO_ENABLED=0 $(GOBUILD) $(RACE_FLAG) -ldflags '$(LDFLAGS) $(CHECK_FLAG)' -o '$(TARGET)' ./cmd/tidb-server
 endif
 
 server_debug:
