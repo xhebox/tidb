@@ -158,6 +158,13 @@ func IsInvisibleSysVar(varNameInLower string) bool {
 		variable.TiDBRestrictedReadOnly,
 		variable.TiDBTopSQLMaxTimeSeriesCount,
 		variable.TiDBTopSQLMaxMetaCount,
+		variable.TiDBStmtSummaryMaxStmtCount,
+		variable.TiDBServerMemoryLimit,
+		variable.TiDBServerMemoryLimitGCTrigger,
+		variable.TiDBInstancePlanCacheMaxMemSize,
+		variable.TiDBStatsCacheMemQuota,
+		variable.TiDBMemQuotaBindingCache,
+		variable.TiDBSchemaCacheSize,
 		tidbAuditRetractLog:
 		return true
 	}

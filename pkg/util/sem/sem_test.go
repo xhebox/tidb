@@ -102,6 +102,12 @@ func TestIsInvisibleSysVar(t *testing.T) {
 	assert.True(IsInvisibleSysVar(variable.TiDBRowFormatVersion))
 	assert.True(IsInvisibleSysVar(variable.TiDBRedactLog))
 	assert.True(IsInvisibleSysVar(variable.TiDBTopSQLMaxTimeSeriesCount))
-	assert.True(IsInvisibleSysVar(variable.TiDBTopSQLMaxTimeSeriesCount))
+	assert.True(IsInvisibleSysVar(variable.TiDBStmtSummaryMaxStmtCount))
+	assert.True(IsInvisibleSysVar(variable.TiDBServerMemoryLimit))
+	assert.True(IsInvisibleSysVar(variable.TiDBServerMemoryLimitGCTrigger))
+	assert.True(IsInvisibleSysVar(variable.TiDBInstancePlanCacheMaxMemSize))
+	assert.True(IsInvisibleSysVar(variable.TiDBStatsCacheMemQuota))
+	assert.True(IsInvisibleSysVar(variable.TiDBMemQuotaBindingCache))
+	assert.True(IsInvisibleSysVar(variable.TiDBSchemaCacheSize))
 	assert.True(IsInvisibleSysVar(tidbAuditRetractLog))
 }
